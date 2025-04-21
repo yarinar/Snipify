@@ -24,7 +24,7 @@ export async function startLogin() {
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: '05f8b9b243c94d1aa39bef811f03df42',
-    redirect_uri: 'http://localhost:5500/callback.html',
+    redirect_uri: 'https://yarinar.github.io/snipify/callback.html',
     scope: 'playlist-read-private streaming user-read-playback-state user-modify-playback-state',
     code_challenge_method: 'S256',
     code_challenge: challenge
@@ -41,7 +41,7 @@ export async function finishLogin() {
     grant_type: 'authorization_code',
     client_id: '05f8b9b243c94d1aa39bef811f03df42',
     code,
-    redirect_uri: 'http://localhost:5500/callback.html',
+    redirect_uri: 'https://yarinar.github.io/snipify/callback.html',
     code_verifier: verifier
   });
 
