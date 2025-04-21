@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Select Playlist - Snipify</title>
+  <script src="https://sdk.scdn.co/spotify-player.js"></script>
+  <script type="module" src="auth.js"></script>
+  <script type="module" src="selector.js"></script>
+  <style>
+    body {
+      background-color: #000;
+      color: #fff;
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    h1 {
+      font-size: 2rem;
+      text-align: center;
+      margin: 1rem 0;
+      color: #1db954;
+    }
+
+    #playlistGrid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1rem;
+      padding: 1rem;
+      overflow-y: auto;
+      flex-grow: 1;
+    }
+
+    .playlist {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background-color: #111;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .playlist:hover {
+      transform: scale(1.05);
+    }
+
+    .playlist img {
+      width: 100%;
+      border-radius: 10px 10px 0 0;
+    }
+
+    .playlist-name {
+      padding: 0.5rem;
+      text-align: center;
+      font-size: 0.9rem;
+      color: #ccc;
+    }
+
+    #nextBtn {
+      background-color: #1db954;
+      border: none;
+      color: white;
+      padding: 1rem;
+      font-size: 1rem;
+      margin: 1rem auto;
+      width: 90%;
+      max-width: 400px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    #nextBtn:disabled {
+      background-color: #444;
+      cursor: not-allowed;
+    }
+
+    #version {
+      text-align: center;
+      font-size: 0.75rem;
+      color: #666;
+      margin-bottom: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>Choose a Playlist</h1>
+  <div id="playlistGrid"></div>
+  <button id="nextBtn" disabled>Continue ➜</button>
+  <div id="version">v1.1</div>
+</body>
+</html>

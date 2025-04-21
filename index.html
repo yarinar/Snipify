@@ -19,10 +19,68 @@
       margin: 0;
     }
 
-    h1 {
-      font-size: 2.5rem;
-      margin-bottom: 1rem;
+    #back {
+      position: absolute;
+      top: 1rem;
+      left: 1rem;
+    }
+
+    #logo {
+      font-size: 2rem;
+      font-weight: bold;
       color: #1db954;
+      margin-bottom: 1rem;
+    }
+
+    #albumArt {
+      width: 200px;
+      height: 200px;
+      border-radius: 12px;
+      object-fit: cover;
+      margin-bottom: 1rem;
+    }
+
+    #trackName {
+      font-size: 1.2rem;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    #trackArtist {
+      font-size: 1rem;
+      color: #ccc;
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+
+    #waveform {
+      width: 60px;
+      height: 40px;
+      margin: 1rem auto;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    #waveform::before {
+      content: "";
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: url('waveform.gif') center/contain no-repeat;
+    }
+
+    #controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 1em;
+    }
+
+    .button-group {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin: 0.5em 0;
     }
 
     button, select {
@@ -42,118 +100,46 @@
       transform: scale(1.05);
     }
 
-    button.used {
+    .used {
       background-color: #555;
     }
 
-    select {
-      background-color: #333;
-      color: #fff;
-    }
-
-    #controls {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      margin-top: 1em;
-    }
-
-    .button-group {
-      display: flex;
-      justify-content: center;
-      flex-wrap: wrap;
-      margin: 0.5em 0;
-    }
-
-    #login {
-      margin-bottom: 2em;
-    }
-
-    #status {
-      font-size: 1.5rem;
-      margin: 1rem 0;
-      height: 2rem;
-      text-align: center;
-    }
-
-    #artwork {
-      margin: 1rem 0 0.5rem;
-      max-width: 300px;
-      border-radius: 12px;
-    }
-
-    #songName {
-      font-size: 1.2rem;
-      font-weight: bold;
-    }
-
-    #songArtists {
-      font-size: 1rem;
-      color: #ccc;
-      margin-bottom: 1rem;
-    }
-
     #version {
-      position: fixed;
-      bottom: 5px;
-      font-size: 0.8rem;
-      color: #666;
+      font-size: 0.7rem;
+      color: #777;
+      margin-top: 1rem;
     }
   </style>
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const revealBtn = document.getElementById('reveal');
-      const artwork = document.getElementById('artwork');
-      const songName = document.getElementById('songName');
-      const songArtists = document.getElementById('songArtists');
-
-      let revealed = false;
-
-      if (revealBtn && artwork && songName && songArtists) {
-        revealBtn.addEventListener('click', () => {
-          revealed = !revealed;
-          artwork.hidden = !revealed;
-          songName.hidden = !revealed;
-          songArtists.hidden = !revealed;
-          revealBtn.textContent = revealed ? 'Hide 🔒' : 'Reveal 🎵';
-        });
-      } else {
-        console.warn("Reveal button or song elements not found");
-      }
-    });
-  </script>
 </head>
 <body>
-  <h1>Snipify</h1>
-  <button id="login">Log in with Spotify</button>
-
+  <button id="back">⟵ Back</button>
+  <div id="logo">Snipify</div>
   <div id="game" hidden>
-    <select id="playlistSelect"></select>
-    <div id="status">⏸️ Paused</div>
+    <img id="albumArt" src="" alt="Album Cover" />
+    <div id="trackName"></div>
+    <div id="trackArtist"></div>
+    <div id="waveform"></div>
 
     <div id="controls">
       <div class="button-group" id="snippets">
-        <button data-sec="1">1 sec</button>
-        <button data-sec="2">2 sec</button>
-        <button data-sec="3">3 sec</button>
-        <button data-sec="4">4 sec</button>
-        <button data-sec="5">5 sec</button>
+        <button data-sec="1">1 sec</button>
+        <button data-sec="2">2 sec</button>
+        <button data-sec="3">3 sec</button>
+        <button data-sec="4">4 sec</button>
+        <button data-sec="5">5 sec</button>
       </div>
 
       <div class="button-group" id="actions">
-        <button id="reveal">Reveal 🎵</button>
+        <button id="reveal">Reveal 🎵</button>
         <button id="full">Play full</button>
       </div>
-
-      <img id="artwork" hidden>
-      <p id="songName" hidden></p>
-      <p id="songArtists" hidden></p>
 
       <div class="button-group" id="next">
         <button id="next">Next song ➜</button>
       </div>
     </div>
   </div>
-  <div id="version">v1.4</div>
+
+  <div id="version">v2.1</div>
 </body>
 </html>
