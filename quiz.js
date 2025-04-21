@@ -41,8 +41,8 @@ async function loadPlaylists() {
 }
 
 playlistUI.onchange = async () => {
-  const { tracks: t } = await api(`playlists/${playlistUI.value}/tracks?fields=items(track(uri,name,artists(name)))&limit=100`);
-  tracks = t.items.map(i => i.track).filter(Boolean);
+  const data = await api(`playlists/${playlistUI.value}/tracks?fields=items(track(uri,name,artists(name)))&limit=100`);
+  tracks = data.items.map(i => i.track).filter(Boolean);
   pickRandom();
 };
 
@@ -77,7 +77,9 @@ async function setupPlayer() {
   document.body.addEventListener('click', () => player.activateElement(), { once: true });
 
   buttons.forEach(b => b.onclick = () => playSnippet(+b.dataset.sec));
-  document.getElementById('full').onclick  = () => playTrack(current.uri);
+  document.getElementById('full').onclick = () => {
+  if (current?.uri) playTrack(current.uri);
+  };
   document.getElementById('next').onclick  = pickRandom;
   document.getElementById('reveal').onclick = () =>
     answerUI.textContent = `${current.name} – ${current.artists.map(a => a.name).join(', ')}`;
@@ -91,6 +93,7 @@ function playTrack(uri, position_ms = 0) {
 }
 
 async function playSnippet(seconds) {
+  if (!current?.uri) return;
   await playTrack(current.uri, 0);
   setTimeout(() => {
     api(`me/player/pause?device_id=${deviceId}`, { method: 'PUT' });
