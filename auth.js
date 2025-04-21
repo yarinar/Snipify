@@ -55,5 +55,5 @@ export async function finishLogin() {
   localStorage.setItem('access_token', data.access_token);
   localStorage.setItem('refresh_token', data.refresh_token);
 
-  window.location = '/';
+  window.location.href = 'https://yarinar.github.io/snipify/';
 }
