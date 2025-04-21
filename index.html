@@ -95,20 +95,22 @@
   </style>
   <script>
     document.addEventListener('DOMContentLoaded', () => {
-      const revealBtn = document.getElementById('reveal');
       const artwork = document.getElementById('artwork');
       const songName = document.getElementById('songName');
       const songArtists = document.getElementById('songArtists');
 
       let revealed = false;
 
-      revealBtn.addEventListener('click', () => {
-        revealed = !revealed;
-        artwork.hidden = !revealed;
-        songName.hidden = !revealed;
-        songArtists.hidden = !revealed;
-        revealBtn.textContent = revealed ? 'Hide 🔒' : 'Reveal 🎵';
-      });
+      const revealBtn = document.getElementById('reveal');
+      if (revealBtn) {
+        revealBtn.addEventListener('click', () => {
+          revealed = !revealed;
+          artwork.hidden = !revealed;
+          songName.hidden = !revealed;
+          songArtists.hidden = !revealed;
+          revealBtn.textContent = revealed ? 'Hide 🔒' : 'Reveal 🎵';
+        });
+      }
     });
   </script>
 </head>
