@@ -65,11 +65,6 @@
       margin: 0.5em 0;
     }
 
-    #answer {
-      font-size: 1.2em;
-      margin-top: 1em;
-    }
-
     #login {
       margin-bottom: 2em;
     }
@@ -98,6 +93,24 @@
       margin-bottom: 1rem;
     }
   </style>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const revealBtn = document.getElementById('reveal');
+      const artwork = document.getElementById('artwork');
+      const songName = document.getElementById('songName');
+      const songArtists = document.getElementById('songArtists');
+
+      let revealed = false;
+
+      revealBtn.addEventListener('click', () => {
+        revealed = !revealed;
+        artwork.hidden = !revealed;
+        songName.hidden = !revealed;
+        songArtists.hidden = !revealed;
+        revealBtn.textContent = revealed ? 'Hide 🔒' : 'Reveal 🎵';
+      });
+    });
+  </script>
 </head>
 <body>
   <h1>Snipify</h1>
@@ -122,8 +135,8 @@
       </div>
 
       <img id="artwork" hidden>
-      <p id="songName"></p>
-      <p id="songArtists"></p>
+      <p id="songName" hidden></p>
+      <p id="songArtists" hidden></p>
 
       <div class="button-group" id="next">
         <button id="next">Next song ➜</button>
