@@ -15,10 +15,27 @@ let access, deviceId, tracks = [], current;
     return;
   }
 
+  // 🧪 DEBUG: Check who you are and verify token scopes
+  try {
+    const profile = await api("me");
+    console.log("✅ Logged in as:", profile.display_name || profile.id);
+
+    const playbackCheck = await fetch("https://api.spotify.com/v1/me/player", {
+      headers: { Authorization: `Bearer ${access}` }
+    });
+    console.log("🎧 Player control status:", playbackCheck.status);
+    if (playbackCheck.status === 403) {
+      console.warn("❌ You are missing some playback-related scopes!");
+    }
+  } catch (err) {
+    console.error("⚠️ Error verifying token or playback access:", err);
+  }
+
   loginBtn.hidden = true;
   await loadPlaylists();
   gameArea.hidden = false;
 })();
+
 
 function api(path, opts = {}) {
   return fetch(`https://api.spotify.com/v1/${path}`, {
@@ -28,9 +45,12 @@ function api(path, opts = {}) {
       ...opts.headers
     }
   }).then(async res => {
-    if (res.status === 204) return {}; // No content, no JSON
-    if (!res.ok) throw await res.json().catch(() => ({ message: "Unknown error", status: res.status }));
-    return res.json();
+    if (res.status === 204) return {}; // No content to parse
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`Spotify API error (${res.status}): ${text}`);
+    }
+    return res.json().catch(() => ({}));
   });
 }
 
@@ -133,8 +153,13 @@ async function playSnippet(seconds) {
 
   try {
     await playTrack(current.uri, 0);
-    setTimeout(() => {
-      api(`me/player/pause?device_id=${deviceId}`, { method: 'PUT' });
+    setTimeout(async () => {
+      try {
+        await api(`me/player/pause?device_id=${deviceId}`, { method: 'PUT' });
+        console.log("Playback paused");
+      } catch (err) {
+        console.error("Pause failed:", err);
+      }
     }, seconds * 1000);
   } catch (err) {
     console.error("Error during snippet playback:", err);
