@@ -42,15 +42,18 @@ async function loadPlaylists() {
 
 playlistUI.onchange = async () => {
   try {
-    const res = await api(`playlists/${playlistUI.value}/tracks?fields=items(track(uri,name,artists(name)))&limit=100`);
+    const playlistId = playlistUI.value;
 
-    if (!res || !res.items || !Array.isArray(res.items)) {
-      console.error("Playlist load failed or returned no tracks:", res);
-      alert("Failed to load tracks for this playlist.");
+    const res = await api(`playlists/${playlistId}/tracks?limit=100`);
+
+    if (!res || typeof res !== 'object' || !Array.isArray(res.items)) {
+      console.error("Invalid playlist response:", res);
+      alert("Failed to load playlist tracks. Try logging in again or pick another playlist.");
       return;
     }
 
     tracks = res.items.map(i => i.track).filter(Boolean);
+
     if (tracks.length === 0) {
       alert("This playlist has no playable tracks.");
       return;
@@ -58,11 +61,16 @@ playlistUI.onchange = async () => {
 
     pickRandom();
   } catch (err) {
-    console.error("Playlist change error:", err);
+    console.error("Playlist load error:", err);
+    alert("An error occurred loading the playlist.");
   }
 };
 
 function pickRandom() {
+  if (!tracks || tracks.length === 0) {
+    alert("No tracks loaded.");
+    return;
+  }
   current = tracks[Math.floor(Math.random() * tracks.length)];
   answerUI.textContent = '❓';
 }
