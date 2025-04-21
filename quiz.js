@@ -42,9 +42,14 @@ async function loadPlaylists() {
 
 playlistUI.onchange = async () => {
   const data = await api(`playlists/${playlistUI.value}/tracks?fields=items(track(uri,name,artists(name)))&limit=100`);
+  if (!data?.items) {
+    console.warn("No tracks found or API failed", data);
+    return;
+  }
   tracks = data.items.map(i => i.track).filter(Boolean);
   pickRandom();
 };
+
 
 function pickRandom() {
   current = tracks[Math.floor(Math.random() * tracks.length)];
