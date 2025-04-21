@@ -41,15 +41,26 @@ async function loadPlaylists() {
 }
 
 playlistUI.onchange = async () => {
-  const data = await api(`playlists/${playlistUI.value}/tracks?fields=items(track(uri,name,artists(name)))&limit=100`);
-  if (!data?.items) {
-    console.warn("No tracks found or API failed", data);
-    return;
-  }
-  tracks = data.items.map(i => i.track).filter(Boolean);
-  pickRandom();
-};
+  try {
+    const res = await api(`playlists/${playlistUI.value}/tracks?fields=items(track(uri,name,artists(name)))&limit=100`);
 
+    if (!res || !res.items || !Array.isArray(res.items)) {
+      console.error("Playlist load failed or returned no tracks:", res);
+      alert("Failed to load tracks for this playlist.");
+      return;
+    }
+
+    tracks = res.items.map(i => i.track).filter(Boolean);
+    if (tracks.length === 0) {
+      alert("This playlist has no playable tracks.");
+      return;
+    }
+
+    pickRandom();
+  } catch (err) {
+    console.error("Playlist change error:", err);
+  }
+};
 
 function pickRandom() {
   current = tracks[Math.floor(Math.random() * tracks.length)];
@@ -83,7 +94,11 @@ async function setupPlayer() {
 
   buttons.forEach(b => b.onclick = () => playSnippet(+b.dataset.sec));
   document.getElementById('full').onclick = () => {
-  if (current?.uri) playTrack(current.uri);
+    if (!current?.uri) {
+      alert("No track loaded yet.");
+      return;
+    }
+    playTrack(current.uri);
   };
   document.getElementById('next').onclick  = pickRandom;
   document.getElementById('reveal').onclick = () =>
@@ -98,9 +113,18 @@ function playTrack(uri, position_ms = 0) {
 }
 
 async function playSnippet(seconds) {
-  if (!current?.uri) return;
-  await playTrack(current.uri, 0);
-  setTimeout(() => {
-    api(`me/player/pause?device_id=${deviceId}`, { method: 'PUT' });
-  }, seconds * 1000);
+  if (!current?.uri) {
+    console.warn("No track loaded yet.");
+    alert("Pick a playlist and wait for a song to load first.");
+    return;
+  }
+
+  try {
+    await playTrack(current.uri, 0);
+    setTimeout(() => {
+      api(`me/player/pause?device_id=${deviceId}`, { method: 'PUT' });
+    }, seconds * 1000);
+  } catch (err) {
+    console.error("Error during snippet playback:", err);
+  }
 }
