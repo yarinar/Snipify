@@ -19,6 +19,12 @@
       margin: 0;
     }
 
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+      color: #1db954;
+    }
+
     button, select {
       font-size: 1rem;
       padding: 0.5em 1em;
@@ -34,6 +40,10 @@
     button:hover {
       background-color: #1ed760;
       transform: scale(1.05);
+    }
+
+    button.used {
+      background-color: #555;
     }
 
     select {
@@ -63,27 +73,49 @@
     #login {
       margin-bottom: 2em;
     }
+
+    #status {
+      font-size: 1.5rem;
+      margin: 1rem 0;
+      height: 2rem;
+    }
+
+    #artwork {
+      margin: 1rem 0 0.5rem;
+      max-width: 300px;
+      border-radius: 12px;
+    }
+
+    #songName {
+      margin-bottom: 1rem;
+      font-size: 1.1rem;
+    }
   </style>
 </head>
 <body>
+  <h1>Snipify</h1>
   <button id="login">Log in with Spotify</button>
 
   <div id="game" hidden>
     <select id="playlistSelect"></select>
+    <div id="status"></div>
 
     <div id="controls">
       <div class="button-group" id="snippets">
-        <button data-sec="1">1 sec</button>
-        <button data-sec="2">2 sec</button>
-        <button data-sec="3">3 sec</button>
-        <button data-sec="4">4 sec</button>
-        <button data-sec="5">5 sec</button>
+        <button data-sec="1">1 sec</button>
+        <button data-sec="2">2 sec</button>
+        <button data-sec="3">3 sec</button>
+        <button data-sec="4">4 sec</button>
+        <button data-sec="5">5 sec</button>
       </div>
 
       <div class="button-group" id="actions">
-        <button id="reveal">Reveal 🎵</button>
+        <button id="reveal">Reveal 🎵</button>
         <button id="full">Play full</button>
       </div>
+
+      <img id="artwork" hidden>
+      <p id="songName"></p>
 
       <div class="button-group" id="next">
         <button id="next">Next song ➜</button>

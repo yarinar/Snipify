@@ -5,8 +5,14 @@ const gameArea   = document.getElementById('game');
 const playlistUI = document.getElementById('playlistSelect');
 const answerUI   = document.getElementById('answer');
 const buttons    = [...document.querySelectorAll('[data-sec]')];
+const fullBtn    = document.getElementById('full');
+const nextBtn    = document.getElementById('next');
+const revealBtn  = document.getElementById('reveal');
+const statusUI   = document.getElementById('status');
+const artworkUI  = document.getElementById('artwork');
+const songNameUI = document.getElementById('songName');
 
-let access, deviceId, tracks = [], current;
+let access, deviceId, tracks = [], current, isPlayingFull = false;
 
 (async function init() {
   access = localStorage.getItem('access_token');
@@ -15,7 +21,6 @@ let access, deviceId, tracks = [], current;
     return;
   }
 
-  // 🧪 DEBUG: Check who you are and verify token scopes
   try {
     const profile = await api("me");
     console.log("✅ Logged in as:", profile.display_name || profile.id);
@@ -36,7 +41,6 @@ let access, deviceId, tracks = [], current;
   gameArea.hidden = false;
 })();
 
-
 function api(path, opts = {}) {
   return fetch(`https://api.spotify.com/v1/${path}`, {
     ...opts,
@@ -45,7 +49,7 @@ function api(path, opts = {}) {
       ...opts.headers
     }
   }).then(async res => {
-    if (res.status === 204) return {}; // No content to parse
+    if (res.status === 204) return {};
     if (!res.ok) {
       const text = await res.text().catch(() => '');
       throw new Error(`Spotify API error (${res.status}): ${text}`);
@@ -66,37 +70,32 @@ async function loadPlaylists() {
 
 playlistUI.onchange = async () => {
   try {
-    const playlistId = playlistUI.value;
-
-    const res = await api(`playlists/${playlistId}/tracks?limit=100`);
-
-    if (!res || typeof res !== 'object' || !Array.isArray(res.items)) {
-      console.error("Invalid playlist response:", res);
-      alert("Failed to load playlist tracks. Try logging in again or pick another playlist.");
+    const res = await api(`playlists/${playlistUI.value}/tracks?limit=100`);
+    if (!res || !Array.isArray(res.items)) {
+      alert("Failed to load playlist tracks.");
       return;
     }
-
     tracks = res.items.map(i => i.track).filter(Boolean);
-
     if (tracks.length === 0) {
       alert("This playlist has no playable tracks.");
       return;
     }
-
     pickRandom();
   } catch (err) {
     console.error("Playlist load error:", err);
-    alert("An error occurred loading the playlist.");
   }
 };
 
 function pickRandom() {
-  if (!tracks || tracks.length === 0) {
-    alert("No tracks loaded.");
-    return;
-  }
   current = tracks[Math.floor(Math.random() * tracks.length)];
   answerUI.textContent = '❓';
+  artworkUI.hidden = true;
+  artworkUI.src = '';
+  songNameUI.textContent = '';
+  resetSnippetButtons();
+  updateStatus('⏸️ Paused');
+  isPlayingFull = false;
+  fullBtn.textContent = 'Play full';
 }
 
 window.onSpotifyWebPlaybackSDKReady = () => {
@@ -121,57 +120,74 @@ async function setupPlayer() {
   player.addListener('playback_error', e => console.error(e));
 
   await player.connect();
-
   document.body.addEventListener('click', () => player.activateElement(), { once: true });
 
-  buttons.forEach(b => b.onclick = () => playSnippet(+b.dataset.sec));
-  document.getElementById('full').onclick = () => {
-    if (!current?.uri) {
-      alert("No track loaded yet.");
-      return;
+  buttons.forEach(b => {
+    b.onclick = () => {
+      playSnippet(+b.dataset.sec);
+      b.classList.add('used');
+    };
+  });
+
+  fullBtn.onclick = () => {
+    if (!current?.uri) return;
+    if (isPlayingFull) {
+      pause();
+      fullBtn.textContent = 'Play full';
+      isPlayingFull = false;
+      updateStatus('⏸️ Paused');
+    } else {
+      playTrack(current.uri);
+      fullBtn.textContent = 'Stop';
+      isPlayingFull = true;
+      updateStatus('🔊 Playing full');
     }
-    playTrack(current.uri);
   };
-  document.getElementById('next').onclick  = pickRandom;
-  document.getElementById('reveal').onclick = () =>
+
+  nextBtn.onclick = () => {
+    pause();
+    pickRandom();
+  };
+
+  revealBtn.onclick = () => {
     answerUI.textContent = `${current.name} – ${current.artists.map(a => a.name).join(', ')}`;
+    if (current.album?.images?.length) {
+      artworkUI.src = current.album.images[0].url;
+      artworkUI.hidden = false;
+      songNameUI.textContent = current.name;
+    }
+  };
+}
+
+function resetSnippetButtons() {
+  buttons.forEach(b => b.classList.remove('used'));
+}
+
+function updateStatus(msg) {
+  statusUI.textContent = msg;
 }
 
 function playTrack(uri, position_ms = 0) {
+  updateStatus('🔊 Playing');
   return api(`me/player/play?device_id=${deviceId}`, {
     method: 'PUT',
     body: JSON.stringify({ uris: [uri], position_ms })
   });
 }
 
-async function playSnippet(seconds) {
-  if (!current?.uri) {
-    console.warn("No track loaded yet.");
-    alert("Pick a playlist and wait for a song to load first.");
-    return;
-  }
+function pause() {
+  return fetch(`https://api.spotify.com/v1/me/player/pause?device_id=${deviceId}`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${access}` }
+  }).then(() => updateStatus('⏸️ Paused'));
+}
 
+async function playSnippet(seconds) {
+  if (!current?.uri) return alert("Pick a playlist and wait for a song to load.");
   try {
     await playTrack(current.uri, 0);
-    setTimeout(async () => {
-      try {
-        const res = await fetch(`https://api.spotify.com/v1/me/player/pause?device_id=${deviceId}`, {
-          method: 'PUT',
-          headers: { Authorization: `Bearer ${access}` }
-        });
-
-        if (!res.ok && res.status !== 204) {
-          const text = await res.text();
-          console.warn("Pause failed:", text);
-        } else {
-          console.log("✅ Paused successfully");
-        }
-      } catch (err) {
-        console.error("Pause error:", err);
-      }
-    }, seconds * 1000);
+    setTimeout(() => pause(), seconds * 1000);
   } catch (err) {
     console.error("Error during snippet playback:", err);
   }
 }
-
