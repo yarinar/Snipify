@@ -1,29 +1,93 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Snipify – Spotify Music Quiz</title>
-</head>
-<body>
+  <meta charset="UTF-8" />
+  <title>Snipify</title>
   <script src="https://sdk.scdn.co/spotify-player.js"></script>
   <script type="module" src="auth.js"></script>
   <script type="module" src="quiz.js"></script>
+  <style>
+    body {
+      background-color: #000;
+      color: #fff;
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+    }
 
-  <h1>Snipify 🎵</h1>
+    button, select {
+      font-size: 1rem;
+      padding: 0.5em 1em;
+      margin: 0.4em;
+      border: none;
+      border-radius: 6px;
+      background-color: #1db954;
+      color: #fff;
+      cursor: pointer;
+      transition: transform 0.2s, background-color 0.2s;
+    }
+
+    button:hover {
+      background-color: #1ed760;
+      transform: scale(1.05);
+    }
+
+    select {
+      background-color: #333;
+      color: #fff;
+    }
+
+    #controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 1em;
+    }
+
+    .button-group {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin: 0.5em 0;
+    }
+
+    #answer {
+      font-size: 1.2em;
+      margin-top: 1em;
+    }
+
+    #login {
+      margin-bottom: 2em;
+    }
+  </style>
+</head>
+<body>
   <button id="login">Log in with Spotify</button>
 
   <div id="game" hidden>
     <select id="playlistSelect"></select>
 
     <div id="controls">
-      <button data-sec="1">1 sec</button>
-      <button data-sec="2">2 sec</button>
-      <button data-sec="3">3 sec</button>
-      <button data-sec="4">4 sec</button>
-      <button data-sec="5">5 sec</button>
-      <button id="reveal">Reveal 🎵</button>
-      <button id="full">Play full</button>
-      <button id="next">Next song ➜</button>
+      <div class="button-group" id="snippets">
+        <button data-sec="1">1 sec</button>
+        <button data-sec="2">2 sec</button>
+        <button data-sec="3">3 sec</button>
+        <button data-sec="4">4 sec</button>
+        <button data-sec="5">5 sec</button>
+      </div>
+
+      <div class="button-group" id="actions">
+        <button id="reveal">Reveal 🎵</button>
+        <button id="full">Play full</button>
+      </div>
+
+      <div class="button-group" id="next">
+        <button id="next">Next song ➜</button>
+      </div>
     </div>
 
     <p id="answer">❓</p>
