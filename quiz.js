@@ -155,13 +155,23 @@ async function playSnippet(seconds) {
     await playTrack(current.uri, 0);
     setTimeout(async () => {
       try {
-        await api(`me/player/pause?device_id=${deviceId}`, { method: 'PUT' });
-        console.log("Playback paused");
+        const res = await fetch(`https://api.spotify.com/v1/me/player/pause?device_id=${deviceId}`, {
+          method: 'PUT',
+          headers: { Authorization: `Bearer ${access}` }
+        });
+
+        if (!res.ok && res.status !== 204) {
+          const text = await res.text();
+          console.warn("Pause failed:", text);
+        } else {
+          console.log("✅ Paused successfully");
+        }
       } catch (err) {
-        console.error("Pause failed:", err);
+        console.error("Pause error:", err);
       }
     }, seconds * 1000);
   } catch (err) {
     console.error("Error during snippet playback:", err);
   }
 }
+
