@@ -1,62 +1,53 @@
 // selector.js
 import { startLogin } from './auth.js';
 
-const playlistGrid = document.getElementById('playlistGrid');
-const nextBtn = document.getElementById('nextBtn');
+const loginBtn = document.getElementById('login');
+const grid     = document.getElementById('playlistGrid');
 
-let selectedId = null;
-let accessToken = localStorage.getItem('access_token');
+let access;
 
-if (!accessToken) {
-  startLogin();
-} else {
-  loadPlaylists();
-}
+(async function init() {
+  access = localStorage.getItem('access_token');
+  if (!access) return loginBtn.onclick = startLogin;
+  loginBtn.hidden = true;
 
-async function loadPlaylists() {
   try {
-    const res = await fetch('https://api.spotify.com/v1/me/playlists?limit=50', {
-      headers: {
-        Authorization: `Bearer ${accessToken}`
-      }
-    });
-    const data = await res.json();
-    renderPlaylists(data.items);
+    const user = await api('me');
+    console.log('✅ Logged in as:', user.display_name || user.id);
+    const data = await api('me/playlists?limit=50');
+    renderGrid(data.items);
   } catch (err) {
-    console.error('Failed to load playlists:', err);
-    alert('Error loading playlists. Please try logging in again.');
+    console.error("Auth or playlist fetch error:", err);
     startLogin();
   }
-}
+})();
 
-function renderPlaylists(playlists) {
-  playlistGrid.innerHTML = '';
-  playlists.forEach(p => {
-    const div = document.createElement('div');
-    div.className = 'playlist';
-    div.onclick = () => {
-      document.querySelectorAll('.playlist.selected').forEach(el => el.classList.remove('selected'));
-      div.classList.add('selected');
-      selectedId = p.id;
-      nextBtn.disabled = false;
-    };
-
-    const img = document.createElement('img');
-    img.src = p.images[0]?.url || 'https://via.placeholder.com/150';
-
-    const name = document.createElement('div');
-    name.className = 'playlist-name';
-    name.textContent = p.name;
-
-    div.appendChild(img);
-    div.appendChild(name);
-    playlistGrid.appendChild(div);
+function api(path, opts = {}) {
+  return fetch(`https://api.spotify.com/v1/${path}`, {
+    ...opts,
+    headers: {
+      Authorization: `Bearer ${access}`,
+      ...opts.headers
+    }
+  }).then(async res => {
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
   });
 }
 
-nextBtn.onclick = () => {
-  if (selectedId) {
-    localStorage.setItem('selected_playlist_id', selectedId);
-    window.location.href = 'index.html';
-  }
-};
+function renderGrid(playlists) {
+  grid.innerHTML = '';
+  playlists.forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'playlist';
+    div.innerHTML = `
+      <img src="${p.images[0]?.url || ''}" alt="${p.name}" />
+      <p>${p.name}</p>
+    `;
+    div.onclick = () => {
+      localStorage.setItem('selected_playlist', p.id);
+      location.href = 'index.html';
+    };
+    grid.appendChild(div);
+  });
+}
