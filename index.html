@@ -78,6 +78,7 @@
       font-size: 1.5rem;
       margin: 1rem 0;
       height: 2rem;
+      text-align: center;
     }
 
     #artwork {
@@ -87,8 +88,14 @@
     }
 
     #songName {
+      font-size: 1.2rem;
+      font-weight: bold;
+    }
+
+    #songArtists {
+      font-size: 1rem;
+      color: #ccc;
       margin-bottom: 1rem;
-      font-size: 1.1rem;
     }
   </style>
 </head>
@@ -98,7 +105,7 @@
 
   <div id="game" hidden>
     <select id="playlistSelect"></select>
-    <div id="status"></div>
+    <div id="status">⏸️ Paused</div>
 
     <div id="controls">
       <div class="button-group" id="snippets">
@@ -116,13 +123,12 @@
 
       <img id="artwork" hidden>
       <p id="songName"></p>
+      <p id="songArtists"></p>
 
       <div class="button-group" id="next">
         <button id="next">Next song ➜</button>
       </div>
     </div>
-
-    <p id="answer">❓</p>
   </div>
 </body>
 </html>
