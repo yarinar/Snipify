@@ -27,7 +27,11 @@ function api(path, opts = {}) {
       Authorization: `Bearer ${access}`,
       ...opts.headers
     }
-  }).then(r => r.json());
+  }).then(async res => {
+    if (res.status === 204) return {}; // No content, no JSON
+    if (!res.ok) throw await res.json().catch(() => ({ message: "Unknown error", status: res.status }));
+    return res.json();
+  });
 }
 
 async function loadPlaylists() {
