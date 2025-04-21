@@ -92,17 +92,24 @@
       color: #ccc;
       margin-bottom: 1rem;
     }
+
+    #version {
+      position: fixed;
+      bottom: 5px;
+      font-size: 0.8rem;
+      color: #666;
+    }
   </style>
   <script>
     document.addEventListener('DOMContentLoaded', () => {
+      const revealBtn = document.getElementById('reveal');
       const artwork = document.getElementById('artwork');
       const songName = document.getElementById('songName');
       const songArtists = document.getElementById('songArtists');
 
       let revealed = false;
 
-      const revealBtn = document.getElementById('reveal');
-      if (revealBtn) {
+      if (revealBtn && artwork && songName && songArtists) {
         revealBtn.addEventListener('click', () => {
           revealed = !revealed;
           artwork.hidden = !revealed;
@@ -110,6 +117,8 @@
           songArtists.hidden = !revealed;
           revealBtn.textContent = revealed ? 'Hide 🔒' : 'Reveal 🎵';
         });
+      } else {
+        console.warn("Reveal button or song elements not found");
       }
     });
   </script>
@@ -145,5 +154,6 @@
       </div>
     </div>
   </div>
+  <div id="version">v1.4</div>
 </body>
 </html>
