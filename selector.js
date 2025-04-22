@@ -26,6 +26,7 @@ async function init() {
     }
 
     renderGrid(playlists);
+    setupShuffleToggle();
   } catch (err) {
     console.error('Auth/playlist error', err);
     startLogin();
@@ -57,4 +58,41 @@ function renderGrid(playlists) {
     };
     grid.appendChild(card);
   });
+}
+
+function setupShuffleToggle() {
+  // Create the shuffle toggle container
+  const shuffleContainer = document.createElement('div');
+  shuffleContainer.className = 'shuffle-container';
+  shuffleContainer.style.cssText = 'text-align: center; margin: 1rem 0; color: #ddd;';
+  
+  // Create the label and checkbox
+  const label = document.createElement('label');
+  label.style.cssText = 'cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;';
+  
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.id = 'shuffleToggle';
+  
+  // Set the initial state from localStorage
+  const savedShuffle = localStorage.getItem('shuffle');
+  checkbox.checked = savedShuffle === null ? true : savedShuffle === '1';
+  
+  // Add event listener to save preference
+  checkbox.addEventListener('change', () => {
+    const shuffle = checkbox.checked;
+    localStorage.setItem('shuffle', shuffle ? '1' : '0');
+  });
+  
+  // Add text to the label
+  const text = document.createTextNode('Shuffle songs');
+  
+  // Assemble the elements
+  label.appendChild(checkbox);
+  label.appendChild(text);
+  shuffleContainer.appendChild(label);
+  
+  // Add to the page before the grid
+  const logo = document.getElementById('logo');
+  logo.parentNode.insertBefore(shuffleContainer, logo.nextSibling);
 }

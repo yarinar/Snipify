@@ -14,7 +14,10 @@ const nextBtn       = document.getElementById('next');
 let access, deviceId, tracks = [], current, revealed = false;
 let player;
 let snippetTimer = null;
-let snippetWatcher = null; 
+let snippetWatcher = null;
+let playQueue = [];
+let queueIndex = 0;
+let playedTracks = new Set();
 
 //---------------------------------- INIT -----------------------------------
 (async function init() {
@@ -27,7 +30,7 @@ let snippetWatcher = null;
   try {
     await loadTracks(playlistId);
     setupPlayer();
-    pickRandom();
+    pickNext();
   } catch (err) {
     console.error(err);
     location.href = 'selector.html';
@@ -50,6 +53,17 @@ async function loadTracks(playlistId) {
   const res = await api(`playlists/${playlistId}/tracks?limit=100`);
   tracks = res.items.map(i => i.track).filter(Boolean);
   if (!tracks.length) throw new Error('Playlist empty');
+  
+  // Initialize play queue
+  playQueue = [...tracks];
+  
+  // Check if shuffle is enabled
+  if (localStorage.getItem('shuffle') === '1') {
+    shuffleArray(playQueue);
+  }
+  
+  queueIndex = 0;
+  playedTracks.clear();
 }
 
 //-------------------------------- UI Helpers -------------------------------
@@ -73,11 +87,43 @@ function resetSnippetButtons() {
   buttons.forEach(b => b.classList.remove('used'));
 }
 
-function pickRandom() {
-  current = tracks[Math.floor(Math.random() * tracks.length)];
+function pickNext() {
+  if (playQueue.length === 0) return;
+  
+  // Get the next track from the queue
+  current = playQueue[queueIndex++];
+  
+  // Mark this track as played
+  playedTracks.add(current.id);
+  
+  // If we've reached the end of the queue
+  if (queueIndex >= playQueue.length) {
+    // Reset queue index
+    queueIndex = 0;
+    
+    // If all tracks have been played, reset the played tracks set
+    if (playedTracks.size >= tracks.length) {
+      playedTracks.clear();
+    }
+    
+    // If shuffle is enabled, reshuffle the queue
+    if (localStorage.getItem('shuffle') === '1') {
+      shuffleArray(playQueue);
+    }
+  }
+  
   revealed = false;
   resetSnippetButtons();
   updateTrackDisplay();
+}
+
+function shuffleArray(array) {
+  // Fisher-Yates shuffle algorithm
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
 }
 
 //-------------------------------- PLAYER SETUP -----------------------------
@@ -101,7 +147,7 @@ function setupPlayer() {
     fullBtn.textContent   = playing ? 'Play full' : 'Stop';
   };
 
-  nextBtn.onclick = () => { player.pause(); pickRandom(); };
+  nextBtn.onclick = () => { player.pause(); pickNext(); };
 
   revealBtn.onclick = () => { revealed = !revealed; revealBtn.textContent = revealed ? 'Hide 🎵' : 'Reveal 🎵'; updateTrackDisplay(); };
 
@@ -132,7 +178,7 @@ async function playSnippet(sec) {
     waveform.style.opacity = 1;
     const startTime = Date.now();
 
-    // poll the local SDK every 100 ms
+    // poll the local SDK every 100 ms
     snippetWatcher = setInterval(async () => {
       try {
         const state = await player.getCurrentState();
