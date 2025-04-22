@@ -13,9 +13,8 @@ const nextBtn       = document.getElementById('next');
 
 let access, deviceId, tracks = [], current, revealed = false;
 let player;
+let snippetTimer = null;
 let snippetWatcher = null; 
-let playQueue = [];
-let queueIndex = 0;
 
 //---------------------------------- INIT -----------------------------------
 (async function init() {
@@ -28,7 +27,7 @@ let queueIndex = 0;
   try {
     await loadTracks(playlistId);
     setupPlayer();
-    pickNext();
+    pickRandom();
   } catch (err) {
     console.error(err);
     location.href = 'selector.html';
@@ -47,14 +46,10 @@ function api(path, opts = {}) {
   });
 }
 
-async function loadTracks(id){
-  const res = await api(`playlists/${id}/tracks?limit=100`);
-  playQueue = res.items.map(i=>i.track).filter(Boolean);
-
-  if(localStorage.getItem('shuffle') === '1'){
-    shuffleArray(playQueue);
-  }
-  queueIndex = 0;
+async function loadTracks(playlistId) {
+  const res = await api(`playlists/${playlistId}/tracks?limit=100`);
+  tracks = res.items.map(i => i.track).filter(Boolean);
+  if (!tracks.length) throw new Error('Playlist empty');
 }
 
 //-------------------------------- UI Helpers -------------------------------
@@ -78,24 +73,11 @@ function resetSnippetButtons() {
   buttons.forEach(b => b.classList.remove('used'));
 }
 
-function pickNext(){
-  if(playQueue.length === 0) return;
-
-  current = playQueue[queueIndex++];
-  if(queueIndex >= playQueue.length){  // loop
-    queueIndex = 0;
-    if(localStorage.getItem('shuffle') === '1') shuffleArray(playQueue);
-  }
+function pickRandom() {
+  current = tracks[Math.floor(Math.random() * tracks.length)];
   revealed = false;
   resetSnippetButtons();
   updateTrackDisplay();
-}
-
-function shuffleArray(a){
-  for(let i=a.length-1;i>0;i--){
-    const j=Math.floor(Math.random()*(i+1));
-    [a[i],a[j]]=[a[j],a[i]];
-  }
 }
 
 //-------------------------------- PLAYER SETUP -----------------------------

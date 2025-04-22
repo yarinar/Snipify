@@ -53,8 +53,6 @@ function renderGrid(playlists) {
       <div class="playlist-name">${p.name}</div>`;
     card.onclick = () => {
       localStorage.setItem('selected_playlist', p.id);
-      const shuffle = document.getElementById('shuffleToggle').checked;
-      localStorage.setItem('shuffle', shuffle ? '1' : '0');
       window.location.href = 'index.html';
     };
     grid.appendChild(card);
