@@ -116,7 +116,33 @@ function pause() {
 
 async function playSnippet(sec) {
   if (!current?.uri) return;
-  await playTrack(current.uri, 0);
-  waveform.style.opacity = 1;
-  setTimeout(() => { pause(); waveform.style.opacity = 0; }, sec * 1000);
+
+  try {
+    await playTrack(current.uri, 0);
+    waitForPlaybackToStart().then(() => {
+      waveform.style.opacity = 1;
+      setTimeout(() => {
+        pause();
+        waveform.style.opacity = 0;
+      }, sec * 1000);
+    });
+  } catch (err) {
+    console.error("Snippet error:", err);
+  }
 }
+
+function waitForPlaybackToStart(maxWaitMs = 1000) {
+  return new Promise(resolve => {
+    const start = performance.now();
+
+    const check = async () => {
+      const res = await api('me/player');
+      if (res?.is_playing) return resolve();
+      if (performance.now() - start > maxWaitMs) return resolve(); // fallback safety
+      requestAnimationFrame(check);
+    };
+
+    check();
+  });
+}
+
