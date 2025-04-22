@@ -1,5 +1,5 @@
 // selector.js (v2.1)
-import { startLogin } from './auth.js';
+import { startLogin, getValidToken } from './auth.js';
 
 const grid = document.getElementById('grid'); // matches <div id="grid"> in selector.html
 
@@ -13,23 +13,45 @@ if (!access) {
 
 async function init() {
   try {
-    const user = await api('me');
-    console.log('✅ Logged in as', user.display_name || user.id);
-
-    // fetch *all* playlists (pagination)
-    let next = 'me/playlists?limit=50';
-    const playlists = [];
-    while (next) {
-      const data = await api(next);
-      playlists.push(...data.items);
-      next = data.next ? data.next.replace('https://api.spotify.com/v1/', '') : null;
+    const access = await getValidToken();
+    if (!access) {
+      startLogin();
+      return;
     }
 
-    renderGrid(playlists);
+    const response = await fetch('https://api.spotify.com/v1/me/playlists', {
+      headers: {
+        'Authorization': `Bearer ${access}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const grid = document.getElementById('playlist-grid');
+    grid.innerHTML = '';
+
+    data.items.forEach(playlist => {
+      const div = document.createElement('div');
+      div.className = 'playlist';
+      div.innerHTML = `
+        <img src="${playlist.images[0]?.url || 'default-playlist.png'}" alt="${playlist.name}">
+        <h3>${playlist.name}</h3>
+      `;
+      div.onclick = () => {
+        localStorage.setItem('selected_playlist', playlist.id);
+        window.location.href = 'quiz.html';
+      };
+      grid.appendChild(div);
+    });
+
     setupShuffleToggle();
-  } catch (err) {
-    console.error('Auth/playlist error', err);
-    startLogin();
+  } catch (error) {
+    console.error('Error initializing selector:', error);
+    localStorage.clear();
+    window.location.href = 'login.html';
   }
 }
 

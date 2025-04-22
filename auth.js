@@ -25,7 +25,7 @@ export async function startLogin() {
     response_type: 'code',
     client_id: '05f8b9b243c94d1aa39bef811f03df42',
     redirect_uri: 'https://yarinar.github.io/snipify/callback.html',
-    scope: 'playlist-read-private streaming user-read-playback-state user-modify-playback-state',
+    scope: 'playlist-read-private streaming user-read-playback-state user-modify-playback-state user-read-email user-read-private',
     code_challenge_method: 'S256',
     code_challenge: challenge
   });
@@ -34,26 +34,94 @@ export async function startLogin() {
 }
 
 export async function finishLogin() {
-  const code = new URLSearchParams(window.location.search).get('code');
-  const verifier = localStorage.getItem('code_verifier');
+  try {
+    const code = new URLSearchParams(window.location.search).get('code');
+    const verifier = localStorage.getItem('code_verifier');
 
-  const body = new URLSearchParams({
-    grant_type: 'authorization_code',
-    client_id: '05f8b9b243c94d1aa39bef811f03df42',
-    code,
-    redirect_uri: 'https://yarinar.github.io/snipify/callback.html',
-    code_verifier: verifier
-  });
+    if (!code || !verifier) {
+      throw new Error('Missing code or verifier');
+    }
 
-  const response = await fetch('https://accounts.spotify.com/api/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body
-  });
+    const body = new URLSearchParams({
+      grant_type: 'authorization_code',
+      client_id: '05f8b9b243c94d1aa39bef811f03df42',
+      code,
+      redirect_uri: 'https://yarinar.github.io/snipify/callback.html',
+      code_verifier: verifier
+    });
 
-  const data = await response.json();
-  localStorage.setItem('access_token', data.access_token);
-  localStorage.setItem('refresh_token', data.refresh_token);
+    const response = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body
+    });
 
-  window.location.href = 'https://yarinar.github.io/snipify/';
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    localStorage.setItem('access_token', data.access_token);
+    localStorage.setItem('refresh_token', data.refresh_token);
+    localStorage.setItem('token_expiry', Date.now() + (data.expires_in * 1000));
+
+    window.location.href = 'https://yarinar.github.io/snipify/';
+  } catch (error) {
+    console.error('Login error:', error);
+    localStorage.clear();
+    window.location.href = 'https://yarinar.github.io/snipify/login.html';
+  }
+}
+
+export async function refreshToken() {
+  try {
+    const refresh_token = localStorage.getItem('refresh_token');
+    if (!refresh_token) {
+      throw new Error('No refresh token available');
+    }
+
+    const body = new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: '05f8b9b243c94d1aa39bef811f03df42',
+      refresh_token
+    });
+
+    const response = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    localStorage.setItem('access_token', data.access_token);
+    localStorage.setItem('token_expiry', Date.now() + (data.expires_in * 1000));
+    
+    if (data.refresh_token) {
+      localStorage.setItem('refresh_token', data.refresh_token);
+    }
+
+    return data.access_token;
+  } catch (error) {
+    console.error('Token refresh error:', error);
+    localStorage.clear();
+    window.location.href = 'https://yarinar.github.io/snipify/login.html';
+    return null;
+  }
+}
+
+export function isTokenExpired() {
+  const expiry = localStorage.getItem('token_expiry');
+  if (!expiry) return true;
+  return Date.now() > parseInt(expiry);
+}
+
+export async function getValidToken() {
+  if (isTokenExpired()) {
+    return await refreshToken();
+  }
+  return localStorage.getItem('access_token');
 }
