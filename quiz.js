@@ -114,26 +114,9 @@ function pause() {
   return fetch(`https://api.spotify.com/v1/me/player/pause?device_id=${deviceId}`, { method: 'PUT', headers: { Authorization: `Bearer ${access}` } });
 }
 
-async function playSnippet(sec){
+async function playSnippet(sec) {
   if (!current?.uri) return;
-
-  // fire the play request
   await playTrack(current.uri, 0);
-
-  // wait for SDK to signal “playing”
-  const started = await new Promise(resolve=>{
-    const onState = state=>{
-      if (state && !state.paused && state.track_window?.current_track?.uri === current.uri){
-        player.removeListener('player_state_changed', onState);
-        resolve();
-      }
-    };
-    player.addListener('player_state_changed', onState);
-  });
-
   waveform.style.opacity = 1;
-
-  // now the timing is accurate
-  setTimeout(()=>{ pause(); waveform.style.opacity = 0; }, sec*1000);
+  setTimeout(() => { pause(); waveform.style.opacity = 0; }, sec * 1000);
 }
-
