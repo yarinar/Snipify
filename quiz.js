@@ -1,4 +1,5 @@
-// quiz.js (v2.4)
+// quiz.js (v2.5)
+// Robust‑playback version: retries device transfer & skips tracks on SDK errors
 import { startLogin } from './auth.js';
 
 const backBtn       = document.getElementById('back');
@@ -12,170 +13,115 @@ const revealBtn     = document.getElementById('reveal');
 const nextBtn       = document.getElementById('next');
 
 let access, player, deviceId;
-let tracks = [], playQueue = [], queueIdx = 0, played = new Set();
-let current, revealed = false;
-let snippetWatch = null;
+let tracks=[], playQueue=[], queueIdx=0, played=new Set();
+let current, revealed=false;
+let snippetWatch=null;
 
-// ────────────────────────────── INIT ──────────────────────────────────────
-(async () => {
-  access = localStorage.getItem('access_token');
-  if (!access) return startLogin();
+// ─────────── INIT ───────────
+(async()=>{
+  access=localStorage.getItem('access_token');
+  if(!access) return startLogin();
 
-  const plId = localStorage.getItem('selected_playlist');
-  if (!plId)  return location.href = 'selector.html';
+  const plId=localStorage.getItem('selected_playlist');
+  if(!plId)   return location.href='selector.html';
 
-  try {
+  try{
     await loadTracks(plId);
     setupPlayer();
-  } catch (e) {
-    console.error(e);
-    location.href = 'selector.html';
-  }
+  }catch(e){ console.error(e); location.href='selector.html'; }
 })();
 
-// ───────────────────────────── API HELPERS ────────────────────────────────
-function api(path, opts = {}) {
-  return fetch(`https://api.spotify.com/v1/${path}`, {
+// ─────────── API ───────────
+function api(path,opts={}){
+  return fetch(`https://api.spotify.com/v1/${path}`,{
     ...opts,
-    headers: { Authorization: `Bearer ${access}`, ...opts.headers }
-  }).then(async r => (r.status === 204 ? {} : r.json()));
+    headers:{Authorization:`Bearer ${access}`,...opts.headers}
+  }).then(async r=> (r.status===204?{}:r.json()));
 }
 
-async function ensureDeviceActive() {
-  const info = await api('me/player');
-  if (info?.device?.id !== deviceId) {
-    await api('me/player', {
-      method: 'PUT',
-      body: JSON.stringify({ device_ids: [deviceId], play: false })
-    });
+async function transferHere(){
+  await api('me/player',{
+    method:'PUT',
+    body:JSON.stringify({device_ids:[deviceId],play:false})
+  }).catch(()=>{});
+}
+
+// ─────────── PLAYLIST ───────────
+async function loadTracks(id){
+  const res=await api(`playlists/${id}/tracks?limit=100`);
+  tracks=res.items.map(i=>i.track).filter(t=>t?.is_playable!==false);
+  if(!tracks.length) throw new Error('No playable tracks');
+  playQueue=[...tracks];
+  if(localStorage.getItem('shuffle')==='1') shuffle(playQueue);
+  queueIdx=0; pickNext();
+}
+function shuffle(a){for(let i=a.length-1;i;--i){const j=(Math.random()*(i+1))|0;[a[i],a[j]]=[a[j],a[i]]}}
+
+// ─────────── UI ───────────
+function refresh(){
+  albumArt.hidden=!revealed;
+  if(revealed){
+    albumArt.src=current.album?.images?.[0]?.url||'';
+    trackNameEl.textContent=current.name;
+    trackArtistEl.textContent=current.artists.map(a=>a.name).join(', ');
+  }else{
+    albumArt.src=''; trackNameEl.textContent=trackArtistEl.textContent='';
   }
+  waveform.style.opacity=0; fullBtn.textContent='Play full';
+  buttons.forEach(b=>b.classList.remove('used'));
 }
-
-// ───────────────────────────── PLAYLIST LOAD ──────────────────────────────
-async function loadTracks(id) {
-  const res = await api(`playlists/${id}/tracks?limit=100`);
-  tracks = res.items.map(i => i.track).filter(t => t?.is_playable !== false);
-  if (!tracks.length) throw new Error('No playable tracks.');
-
-  playQueue = [...tracks];
-  if (localStorage.getItem('shuffle') === '1') shuffle(playQueue);
-  queueIdx = 0;
-  pickNext();
-}
-
-function shuffle(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = (Math.random() * (i + 1)) | 0;
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-}
-
-// ───────────────────────────── UI UTIL ────────────────────────────────────
-function refreshDisplay() {
-  albumArt.hidden = !revealed;
-  if (revealed) {
-    albumArt.src = current.album?.images?.[0]?.url || '';
-    trackNameEl.textContent   = current.name;
-    trackArtistEl.textContent = current.artists.map(a => a.name).join(', ');
-  } else {
-    albumArt.src = '';
-    trackNameEl.textContent = trackArtistEl.textContent = '';
-  }
-  waveform.style.opacity = 0;
-  fullBtn.textContent = 'Play full';
-  buttons.forEach(b => b.classList.remove('used'));
-}
-
-function pickNext() {
-  if (!playQueue.length) return;
-  do  { current = playQueue[queueIdx++]; }
-  while (current && played.has(current.id) && queueIdx < playQueue.length);
-
+function pickNext(){
+  if(!playQueue.length) return;
+  current=playQueue[queueIdx++];
   played.add(current.id);
-  if (queueIdx >= playQueue.length) {
-    queueIdx = 0;
-    played.clear();
-    if (localStorage.getItem('shuffle') === '1') shuffle(playQueue);
-  }
-  revealed = false;
-  refreshDisplay();
+  if(queueIdx>=playQueue.length){queueIdx=0; played.clear(); if(localStorage.getItem('shuffle')==='1') shuffle(playQueue);}  
+  revealed=false; refresh();
 }
 
-// ───────────────────────── PLAYER SETUP ───────────────────────────────────
-window.onSpotifyWebPlaybackSDKReady = setupPlayer;
+// ─────────── PLAYER ───────────
+window.onSpotifyWebPlaybackSDKReady=setupPlayer;
+function setupPlayer(){
+  player=new Spotify.Player({name:'Snipify Player',getOAuthToken:cb=>cb(access),volume:0.8});
 
-function setupPlayer() {
-  player = new Spotify.Player({
-    name: 'Snipify Player',
-    getOAuthToken: cb => cb(access),
-    volume: 0.8
-  });
-
-  player.addListener('ready', async e => {
-    deviceId = e.device_id;
-    await ensureDeviceActive();               // first transfer
-  });
+  player.addListener('ready',async e=>{deviceId=e.device_id; await transferHere();});
+  player.addListener('not_ready',()=>console.warn('Web player went offline'));
+  player.addListener('playback_error',e=>{console.warn('SDK playback error',e); nextBtn.click();});
   player.connect();
-  document.body.addEventListener('click', () => player.activateElement(), { once: true });
+  document.body.addEventListener('click',()=>player.activateElement(),{once:true});
 
-  // buttons
-  buttons.forEach(b => b.onclick = () => { b.classList.add('used'); playSnippet(+b.dataset.sec); });
-  fullBtn.onclick   = toggleFull;
-  nextBtn.onclick   = () => { player.pause(); pickNext(); };
-  revealBtn.onclick = () => { revealed = !revealed; revealBtn.textContent = revealed ? 'Hide 🎵' : 'Reveal 🎵'; refreshDisplay(); };
-  backBtn.onclick   = () => { player.pause(); location.href = 'selector.html'; };
+  buttons.forEach(b=>b.onclick=()=>{b.classList.add('used'); playSnippet(+b.dataset.sec);});
+  fullBtn.onclick=toggleFull;
+  nextBtn.onclick =()=>{player.pause(); pickNext();};
+  revealBtn.onclick=()=>{revealed=!revealed; revealBtn.textContent=revealed?'Hide 🎵':'Reveal 🎵'; refresh();};
+  backBtn.onclick  =()=>{player.pause(); location.href='selector.html';};
+}
+async function toggleFull(){
+  if(!current?.uri) return;
+  const playing=waveform.style.opacity==='1';
+  playing?player.pause():await playTrack(current.uri);
+  waveform.style.opacity=playing?0:1;
+  fullBtn.textContent =playing?'Play full':'Stop';
 }
 
-async function toggleFull() {
-  if (!current?.uri) return;
-  const playing = waveform.style.opacity === '1';
-  playing ? player.pause() : await playTrack(current.uri);
-  waveform.style.opacity = playing ? 0 : 1;
-  fullBtn.textContent    = playing ? 'Play full' : 'Stop';
-}
-
-// ───────────────────────────── PLAYBACK ───────────────────────────────────
-async function playTrack(uri, pos = 0) {
-  await ensureDeviceActive();                   // guarantee right device
-  await api(`me/player/play?device_id=${deviceId}`, {
-    method: 'PUT',
-    body: JSON.stringify({ uris: [uri], position_ms: pos })
+// ─────────── PLAYBACK HELPERS ───────────
+async function playTrack(uri,pos=0){
+  await transferHere();
+  await api(`me/player/play?device_id=${deviceId}`,{
+    method:'PUT',body:JSON.stringify({uris:[uri],position_ms:pos})
   });
 }
-
-async function playSnippet(sec) {
-  if (!current?.uri) return;
-
+async function playSnippet(sec){
+  if(!current?.uri) return;
   clearInterval(snippetWatch);
-
-  try {
-    await playTrack(current.uri, 0);
+  try{
+    await playTrack(current.uri,0);
     await waitUntilPlaying();
-    waveform.style.opacity = 1;
-    const t0 = Date.now();
-
-    snippetWatch = setInterval(async () => {
-      const played = (Date.now() - t0) / 1000;
-      if (played >= sec) {
-        clearInterval(snippetWatch);
-        waveform.style.opacity = 0;
-        await player.pause();
-      }
-    }, 100);
-  } catch (e) {
-    console.error('Snippet error', e);
-    pickNext();                  // fallback: skip problematic track
-  }
+    waveform.style.opacity=1; const t0=Date.now();
+    snippetWatch=setInterval(async()=>{
+      const state=await player.getCurrentState().catch(()=>null);
+      if(!state||state.paused){clearInterval(snippetWatch); waveform.style.opacity=0; return;}
+      if(Date.now()-t0>=sec*1000){clearInterval(snippetWatch); waveform.style.opacity=0; await player.pause();}
+    },120);
+  }catch(e){console.error(e); nextBtn.click();}
 }
-
-function waitUntilPlaying(timeout = 2000) {
-  return new Promise(resolve => {
-    const start = Date.now();
-    (async function poll() {
-      const st = await player.getCurrentState().catch(() => null);
-      if (st && !st.paused && st.position > 0) return resolve();
-      if (Date.now() - start > timeout)        return resolve();
-      setTimeout(poll, 50);
-    })();
-  });
-}
+function waitUntilPlaying(timeout=2500){return new Promise(res=>{const s=Date.now();(async function p(){const st=await player.getCurrentState().catch(()=>null);if(st&&!st.paused&&st.position>0)return res(); if(Date.now()-s>timeout) return res(); setTimeout(p,60);})();});}
