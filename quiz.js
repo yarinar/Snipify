@@ -1,4 +1,4 @@
-// quiz.js (v2.2)
+// quiz.js (v2.3)
 import { startLogin } from './auth.js';
 
 const backBtn       = document.getElementById('back');
@@ -12,6 +12,8 @@ const revealBtn     = document.getElementById('reveal');
 const nextBtn       = document.getElementById('next');
 
 let access, deviceId, tracks = [], current, revealed = false;
+let player;
+let snippetTimer = null;
 
 //---------------------------------- INIT -----------------------------------
 (async function init() {
@@ -81,7 +83,7 @@ function pickRandom() {
 window.onSpotifyWebPlaybackSDKReady = setupPlayer;
 
 function setupPlayer() {
-  const player = new Spotify.Player({ name: 'Snipify Player', getOAuthToken: cb => cb(access), volume: 0.8 });
+  player = new Spotify.Player({ name: 'Snipify Player', getOAuthToken: cb => cb(access), volume: 0.8 });
 
   player.addListener('ready', e => (deviceId = e.device_id));
   player.connect();
@@ -93,63 +95,66 @@ function setupPlayer() {
   fullBtn.onclick = () => {
     if (!current?.uri) return;
     const playing = waveform.style.opacity === '1';
-    playing ? pause() : playTrack(current.uri);
+    playing ? player.pause() : playTrack(current.uri);
     waveform.style.opacity = playing ? 0 : 1;
     fullBtn.textContent   = playing ? 'Play full' : 'Stop';
   };
 
-  nextBtn.onclick = () => { pause(); pickRandom(); };
+  nextBtn.onclick = () => { player.pause(); pickRandom(); };
 
   revealBtn.onclick = () => { revealed = !revealed; revealBtn.textContent = revealed ? 'Hide 🎵' : 'Reveal 🎵'; updateTrackDisplay(); };
 
-  backBtn.onclick = () => { pause(); location.href = 'selector.html'; };
+  backBtn.onclick = () => { player.pause(); location.href = 'selector.html'; };
 }
 
 //-------------------------------- Playback Helpers -------------------------
 function playTrack(uri, pos = 0) {
-  return api(`me/player/play?device_id=${deviceId}`, { method: 'PUT', body: JSON.stringify({ uris: [uri], position_ms: pos }) });
-}
-
-function pause() {
-  return fetch(`https://api.spotify.com/v1/me/player/pause?device_id=${deviceId}`, { method: 'PUT', headers: { Authorization: `Bearer ${access}` } });
+  return api(`me/player/play?device_id=${deviceId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ uris: [uri], position_ms: pos })
+  });
 }
 
 async function playSnippet(sec) {
-  if (!current?.uri) return;
+  if (!current?.uri || !player) return;
+
+  if (snippetTimer) {
+    clearTimeout(snippetTimer);
+    snippetTimer = null;
+  }
 
   try {
     await playTrack(current.uri, 0);
 
-    // Wait until the Spotify SDK confirms playback has actually started
-    await waitUntilActuallyPlaying();
+    await waitUntilPlayingSDK();
 
     waveform.style.opacity = 1;
 
-    setTimeout(async () => {
-      await pause();
+    snippetTimer = setTimeout(async () => {
+      await player.pause();
       waveform.style.opacity = 0;
+      snippetTimer = null;
     }, sec * 1000);
+
   } catch (err) {
-    console.error("Snippet error:", err);
+    console.error('Snippet error:', err);
   }
 }
 
-function waitUntilActuallyPlaying(timeout = 2000) {
+function waitUntilPlayingSDK(timeout = 2000) {
   return new Promise(resolve => {
-    const startTime = Date.now();
+    const start = Date.now();
 
-    const check = async () => {
+    const poll = async () => {
       try {
-        const state = await api("me/player");
-        if (state?.is_playing) return resolve();
-      } catch (e) {
-        console.warn("Error checking playback state", e);
-      }
+        const state = await player.getCurrentState();
+        if (state && !state.paused && state.position > 0) return resolve();
+      } catch {}
 
-      if (Date.now() - startTime > timeout) return resolve(); // fallback
-      setTimeout(check, 50); // slower polling is more stable than requestAnimationFrame
+      if (Date.now() - start > timeout) return resolve();
+      setTimeout(poll, 50);
     };
 
-    check();
+    poll();
   });
 }
