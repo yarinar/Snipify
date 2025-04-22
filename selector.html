@@ -26,6 +26,24 @@
       margin-bottom: 1rem;
     }
 
+    #shuffle-container {
+      text-align: center;
+      margin-bottom: 1rem;
+      color: #ddd;
+    }
+
+    #shuffle-container label {
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    #shuffle-container input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+    }
+
     #grid {
       flex: 1;
       overflow-y: auto;
@@ -72,6 +90,12 @@
 </head>
 <body>
   <div id="logo">Snipify</div>
+  <div id="shuffle-container">
+    <label>
+      <input type="checkbox" id="shuffleToggle" checked>
+      Shuffle songs
+    </label>
+  </div>
   <div id="grid"></div>
   <div id="version">v3.0.1</div>
 </body>
