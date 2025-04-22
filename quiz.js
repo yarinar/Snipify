@@ -119,30 +119,37 @@ async function playSnippet(sec) {
 
   try {
     await playTrack(current.uri, 0);
-    waitForPlaybackToStart().then(() => {
-      waveform.style.opacity = 1;
-      setTimeout(() => {
-        pause();
-        waveform.style.opacity = 0;
-      }, sec * 1000);
-    });
+
+    // Wait until the Spotify SDK confirms playback has actually started
+    await waitUntilActuallyPlaying();
+
+    waveform.style.opacity = 1;
+
+    setTimeout(async () => {
+      await pause();
+      waveform.style.opacity = 0;
+    }, sec * 1000);
   } catch (err) {
     console.error("Snippet error:", err);
   }
 }
 
-function waitForPlaybackToStart(maxWaitMs = 1000) {
+function waitUntilActuallyPlaying(timeout = 2000) {
   return new Promise(resolve => {
-    const start = performance.now();
+    const startTime = Date.now();
 
     const check = async () => {
-      const res = await api('me/player');
-      if (res?.is_playing) return resolve();
-      if (performance.now() - start > maxWaitMs) return resolve(); // fallback safety
-      requestAnimationFrame(check);
+      try {
+        const state = await api("me/player");
+        if (state?.is_playing) return resolve();
+      } catch (e) {
+        console.warn("Error checking playback state", e);
+      }
+
+      if (Date.now() - startTime > timeout) return resolve(); // fallback
+      setTimeout(check, 50); // slower polling is more stable than requestAnimationFrame
     };
 
     check();
   });
 }
-
