@@ -14,6 +14,7 @@ const nextBtn       = document.getElementById('next');
 let access, deviceId, tracks = [], current, revealed = false;
 let player;
 let snippetTimer = null;
+let snippetWatcher = null; 
 
 //---------------------------------- INIT -----------------------------------
 (async function init() {
