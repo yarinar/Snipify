@@ -1,5 +1,5 @@
 // quiz.js (v2.3)
-import { getValidToken } from './auth.js';
+import { startLogin } from './auth.js';
 
 const backBtn       = document.getElementById('back');
 const albumArt      = document.getElementById('albumArt');
@@ -18,193 +18,24 @@ let snippetWatcher = null;
 let playQueue = [];
 let queueIndex = 0;
 let playedTracks = new Set();
-let currentTrack = null;
-let currentIndex = 0;
 
 //---------------------------------- INIT -----------------------------------
-async function init() {
+(async function init() {
+  access = localStorage.getItem('access_token');
+  if (!access) return startLogin();
+
+  const playlistId = localStorage.getItem('selected_playlist');
+  if (!playlistId) return (location.href = 'selector.html');
+
   try {
-    const access = await getValidToken();
-    if (!access) {
-      window.location.href = 'login.html';
-      return;
-    }
-
-    const playlistId = localStorage.getItem('selected_playlist');
-    if (!playlistId) {
-      window.location.href = 'selector.html';
-      return;
-    }
-
-    const response = await fetch(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
-      headers: {
-        'Authorization': `Bearer ${access}`
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    tracks = data.items.map(item => item.track).filter(track => track);
-    
-    if (tracks.length === 0) {
-      throw new Error('No tracks found in playlist');
-    }
-
-    // Initialize Spotify Web Playback SDK
-    window.onSpotifyWebPlaybackSDKReady = () => {
-      const token = localStorage.getItem('access_token');
-      player = new Spotify.Player({
-        name: 'Snipify Player',
-        getOAuthToken: cb => { cb(token); },
-        volume: 0.5
-      });
-
-      // Error handling
-      player.addListener('initialization_error', ({ message }) => { 
-        console.error('Failed to initialize:', message);
-        alert('Failed to initialize Spotify player. Please try again.');
-      });
-      player.addListener('authentication_error', ({ message }) => { 
-        console.error('Failed to authenticate:', message);
-        window.location.href = 'login.html';
-      });
-      player.addListener('account_error', ({ message }) => { 
-        console.error('Failed to validate Spotify account:', message);
-        alert('Please make sure you have a Spotify Premium account.');
-      });
-      player.addListener('playback_error', ({ message }) => { 
-        console.error('Failed to perform playback:', message);
-      });
-
-      // Playback status updates
-      player.addListener('player_state_changed', state => { 
-        console.log('Player state changed:', state);
-      });
-
-      // Ready
-      player.addListener('ready', async ({ device_id }) => {
-        console.log('Ready with Device ID', device_id);
-        deviceId = device_id;
-        
-        // Transfer playback to our device
-        try {
-          const transferResponse = await fetch('https://api.spotify.com/v1/me/player', {
-            method: 'PUT',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              device_ids: [device_id]
-            })
-          });
-          
-          if (!transferResponse.ok) {
-            throw new Error(`Failed to transfer playback: ${transferResponse.status}`);
-          }
-          
-          // Wait a bit for the transfer to complete
-          setTimeout(() => {
-            loadNextTrack();
-          }, 1000);
-        } catch (error) {
-          console.error('Failed to transfer playback:', error);
-          alert('Failed to transfer playback to Snipify. Please try again.');
-        }
-      });
-
-      // Connect to the player
-      player.connect();
-    };
-
-    // Load the Spotify Web Playback SDK
-    const script = document.createElement("script");
-    script.src = "https://sdk.scdn.co/spotify-player.js";
-    script.async = true;
-    document.body.appendChild(script);
-
-  } catch (error) {
-    console.error('Error initializing quiz:', error);
-    localStorage.clear();
-    window.location.href = 'login.html';
+    await loadTracks(playlistId);
+    setupPlayer();
+    pickNext();
+  } catch (err) {
+    console.error(err);
+    location.href = 'selector.html';
   }
-}
-
-async function loadNextTrack() {
-  try {
-    const access = await getValidToken();
-    if (!access) {
-      window.location.href = 'login.html';
-      return;
-    }
-
-    currentTrack = tracks[currentIndex];
-    document.getElementById('track-info').textContent = 'Loading...';
-    
-    const response = await fetch(`https://api.spotify.com/v1/tracks/${currentTrack.id}`, {
-      headers: {
-        'Authorization': `Bearer ${access}`
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const track = await response.json();
-    document.getElementById('track-info').textContent = `${track.name} - ${track.artists.map(a => a.name).join(', ')}`;
-    
-    // Start playback
-    const playResponse = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${access}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        uris: [`spotify:track:${currentTrack.id}`]
-      })
-    });
-
-    if (!playResponse.ok) {
-      throw new Error(`Failed to start playback: ${playResponse.status}`);
-    }
-
-    // Set timer to stop playback after 30 seconds
-    setTimeout(async () => {
-      try {
-        const pauseResponse = await fetch(`https://api.spotify.com/v1/me/player/pause?device_id=${deviceId}`, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${access}`
-          }
-        });
-        
-        if (!pauseResponse.ok) {
-          console.error('Failed to pause playback:', pauseResponse.status);
-        }
-      } catch (error) {
-        console.error('Error pausing playback:', error);
-      }
-    }, 30000);
-
-  } catch (error) {
-    console.error('Error loading track:', error);
-    if (error.message.includes('HTTP error! status: 401')) {
-      window.location.href = 'login.html';
-    } else {
-      alert('Failed to play track. Please try again.');
-    }
-  }
-}
-
-function nextTrack() {
-  currentIndex = (currentIndex + 1) % tracks.length;
-  loadNextTrack();
-}
+})();
 
 //-------------------------------- API --------------------------------------
 function api(path, opts = {}) {
@@ -216,6 +47,23 @@ function api(path, opts = {}) {
     if (r.status === 204) return {};
     return r.json();
   });
+}
+
+async function loadTracks(playlistId) {
+  const res = await api(`playlists/${playlistId}/tracks?limit=100`);
+  tracks = res.items.map(i => i.track).filter(Boolean);
+  if (!tracks.length) throw new Error('Playlist empty');
+  
+  // Initialize play queue
+  playQueue = [...tracks];
+  
+  // Check if shuffle is enabled
+  if (localStorage.getItem('shuffle') === '1') {
+    shuffleArray(playQueue);
+  }
+  
+  queueIndex = 0;
+  playedTracks.clear();
 }
 
 //-------------------------------- UI Helpers -------------------------------
@@ -361,9 +209,3 @@ function waitUntilPlayingSDK(timeout = 2000) {
     poll();
   });
 }
-
-// Event listeners
-document.getElementById('next-btn').addEventListener('click', nextTrack);
-
-// Initialize
-init();
