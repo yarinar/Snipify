@@ -24,7 +24,7 @@ export async function startLogin() {
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: '05f8b9b243c94d1aa39bef811f03df42',
-    redirect_uri: 'https://yarinar.github.io/snipify/callback.html',
+    redirect_uri: window.location.origin + '/callback.html',
     scope: 'playlist-read-private streaming user-read-playback-state user-modify-playback-state',
     code_challenge_method: 'S256',
     code_challenge: challenge
@@ -41,7 +41,7 @@ export async function finishLogin() {
     grant_type: 'authorization_code',
     client_id: '05f8b9b243c94d1aa39bef811f03df42',
     code,
-    redirect_uri: 'https://yarinar.github.io/snipify/callback.html',
+    redirect_uri: window.location.origin + '/callback.html',
     code_verifier: verifier
   });
 
@@ -55,5 +55,5 @@ export async function finishLogin() {
   localStorage.setItem('access_token', data.access_token);
   localStorage.setItem('refresh_token', data.refresh_token);
 
-  window.location.href = 'https://yarinar.github.io/snipify/';
+  window.location.href = window.location.origin + '/';
 }
