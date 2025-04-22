@@ -22,6 +22,17 @@ let queueIndex = 0;
   access = localStorage.getItem('access_token');
   if (!access) return startLogin();
 
+  // Check if token is expired
+  if (isTokenExpired()) {
+    console.log('Token expired, refreshing...');
+    try {
+      await refreshToken();
+    } catch (err) {
+      console.error('Failed to refresh token:', err);
+      return startLogin();
+    }
+  }
+
   const playlistId = localStorage.getItem('selected_playlist');
   if (!playlistId) return (location.href = 'selector.html');
 
@@ -35,13 +46,54 @@ let queueIndex = 0;
   }
 })();
 
+// Check if token is expired
+function isTokenExpired() {
+  const tokenExpiry = localStorage.getItem('token_expiry');
+  if (!tokenExpiry) return true;
+  
+  // Check if token is expired or will expire in the next 5 minutes
+  return Date.now() >= parseInt(tokenExpiry) - 300000;
+}
+
+// Simplified refresh token function that redirects to login
+async function refreshToken() {
+  console.log('Token expired, redirecting to login...');
+  localStorage.removeItem('access_token');
+  location.href = 'selector.html';
+}
+
 //-------------------------------- API --------------------------------------
+/**
+ * Makes an API request to Spotify's Web API
+ * 
+ * Note: If you're hosting this on a server, you may need to set up CORS headers
+ * on your server to allow requests to Spotify's API. For client-side only apps,
+ * this should work fine in modern browsers.
+ */
 function api(path, opts = {}) {
   return fetch(`https://api.spotify.com/v1/${path}`, {
     ...opts,
     headers: { Authorization: `Bearer ${access}`, ...opts.headers }
   }).then(async r => {
-    if (!r.ok) throw new Error(await r.text());
+    if (!r.ok) {
+      const errorText = await r.text();
+      console.error(`API Error (${r.status}): ${errorText}`);
+      
+      // Handle specific error codes
+      if (r.status === 401) {
+        console.error('Token expired or invalid. Redirecting to login...');
+        localStorage.removeItem('access_token');
+        location.href = 'selector.html';
+        return;
+      }
+      
+      if (r.status === 403) {
+        console.error('Insufficient permissions. Please check your Spotify account.');
+      }
+      
+      throw new Error(errorText);
+    }
+    
     if (r.status === 204) return {};
     return r.json();
   });
@@ -99,12 +151,53 @@ function shuffleArray(a){
 }
 
 //-------------------------------- PLAYER SETUP -----------------------------
-window.onSpotifyWebPlaybackSDKReady = setupPlayer;
+// Check if SDK is already loaded
+if (window.Spotify) {
+  setupPlayer();
+} else {
+  window.onSpotifyWebPlaybackSDKReady = setupPlayer;
+}
 
 function setupPlayer() {
   player = new Spotify.Player({ name: 'Snipify Player', getOAuthToken: cb => cb(access), volume: 0.8 });
 
-  player.addListener('ready', e => (deviceId = e.device_id));
+  player.addListener('ready', e => {
+    deviceId = e.device_id;
+    console.log('Player ready with Device ID:', deviceId);
+  });
+  
+  player.addListener('not_ready', e => {
+    console.error('Device ID has gone offline:', e.device_id);
+    // If this was our active device, we need to handle it
+    if (e.device_id === deviceId) {
+      deviceId = null;
+      // Try to reconnect
+      setTimeout(() => {
+        console.log('Attempting to reconnect player...');
+        player.connect();
+      }, 2000);
+    }
+  });
+  
+  player.addListener('initialization_error', ({ message }) => {
+    console.error('Failed to initialize player:', message);
+  });
+
+  player.addListener('authentication_error', ({ message }) => {
+    console.error('Failed to authenticate:', message);
+    // Token might be invalid, redirect to login
+    localStorage.removeItem('access_token');
+    location.href = 'selector.html';
+  });
+
+  player.addListener('account_error', ({ message }) => {
+    console.error('Failed to validate Spotify account:', message);
+  });
+
+  player.addListener('playback_error', ({ message }) => {
+    console.error('Failed to perform playback:', message);
+  });
+
   player.connect();
   document.body.addEventListener('click', () => player.activateElement(), { once: true });
 
@@ -150,11 +243,18 @@ async function playSnippet(sec) {
     waveform.style.opacity = 1;
     const startTime = Date.now();
 
-    // poll the local SDK every 100 ms
+    // poll the local SDK every 100 ms
     snippetWatcher = setInterval(async () => {
       try {
         const state = await player.getCurrentState();
-        if (!state || state.paused) return;                          // already paused
+        if (!state || state.paused) {
+          // If playback stopped unexpectedly, clean up
+          clearInterval(snippetWatcher);
+          snippetWatcher = null;
+          waveform.style.opacity = 0;
+          return;
+        }
+        
         const elapsed = Date.now() - startTime;
         if (elapsed >= sec * 1000) {
           await player.pause();                                      // reliable pause
@@ -162,10 +262,23 @@ async function playSnippet(sec) {
           clearInterval(snippetWatcher);
           snippetWatcher = null;
         }
-      } catch { /* ignore transient SDK errors */ }
+      } catch (err) { 
+        // Log error but don't crash
+        console.error('Error in snippet watcher:', err);
+        // Clean up on error
+        clearInterval(snippetWatcher);
+        snippetWatcher = null;
+        waveform.style.opacity = 0;
+      }
     }, 100);
   } catch (err) {
     console.error('Snippet error:', err);
+    // Ensure cleanup on error
+    if (snippetWatcher) {
+      clearInterval(snippetWatcher);
+      snippetWatcher = null;
+    }
+    waveform.style.opacity = 0;
   }
 }
 

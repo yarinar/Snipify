@@ -54,6 +54,10 @@ export async function finishLogin() {
   const data = await response.json();
   localStorage.setItem('access_token', data.access_token);
   localStorage.setItem('refresh_token', data.refresh_token);
+  
+  // Set token expiry time (typically 1 hour from now)
+  const expiryTime = Date.now() + (data.expires_in * 1000);
+  localStorage.setItem('token_expiry', expiryTime.toString());
 
   window.location.href = 'https://yarinar.github.io/snipify/';
 }
