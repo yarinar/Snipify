@@ -1,4 +1,4 @@
-// quiz.js (v2.3)
+// quiz.js (v2.4)
 import { startLogin } from './auth.js';
 
 const backBtn       = document.getElementById('back');
@@ -11,201 +11,171 @@ const fullBtn       = document.getElementById('full');
 const revealBtn     = document.getElementById('reveal');
 const nextBtn       = document.getElementById('next');
 
-let access, deviceId, tracks = [], current, revealed = false;
-let player;
-let snippetTimer = null;
-let snippetWatcher = null;
-let playQueue = [];
-let queueIndex = 0;
-let playedTracks = new Set();
+let access, player, deviceId;
+let tracks = [], playQueue = [], queueIdx = 0, played = new Set();
+let current, revealed = false;
+let snippetWatch = null;
 
-//---------------------------------- INIT -----------------------------------
-(async function init() {
+// ────────────────────────────── INIT ──────────────────────────────────────
+(async () => {
   access = localStorage.getItem('access_token');
   if (!access) return startLogin();
 
-  const playlistId = localStorage.getItem('selected_playlist');
-  if (!playlistId) return (location.href = 'selector.html');
+  const plId = localStorage.getItem('selected_playlist');
+  if (!plId)  return location.href = 'selector.html';
 
   try {
-    await loadTracks(playlistId);
+    await loadTracks(plId);
     setupPlayer();
-    pickNext();
-  } catch (err) {
-    console.error(err);
+  } catch (e) {
+    console.error(e);
     location.href = 'selector.html';
   }
 })();
 
-//-------------------------------- API --------------------------------------
+// ───────────────────────────── API HELPERS ────────────────────────────────
 function api(path, opts = {}) {
   return fetch(`https://api.spotify.com/v1/${path}`, {
     ...opts,
     headers: { Authorization: `Bearer ${access}`, ...opts.headers }
-  }).then(async r => {
-    if (!r.ok) throw new Error(await r.text());
-    if (r.status === 204) return {};
-    return r.json();
-  });
+  }).then(async r => (r.status === 204 ? {} : r.json()));
 }
 
-async function loadTracks(playlistId) {
-  const res = await api(`playlists/${playlistId}/tracks?limit=100`);
-  tracks = res.items.map(i => i.track).filter(Boolean);
-  if (!tracks.length) throw new Error('Playlist empty');
-  
-  // Initialize play queue
-  playQueue = [...tracks];
-  
-  // Check if shuffle is enabled
-  if (localStorage.getItem('shuffle') === '1') {
-    shuffleArray(playQueue);
+async function ensureDeviceActive() {
+  const info = await api('me/player');
+  if (info?.device?.id !== deviceId) {
+    await api('me/player', {
+      method: 'PUT',
+      body: JSON.stringify({ device_ids: [deviceId], play: false })
+    });
   }
-  
-  queueIndex = 0;
-  playedTracks.clear();
 }
 
-//-------------------------------- UI Helpers -------------------------------
-function updateTrackDisplay() {
+// ───────────────────────────── PLAYLIST LOAD ──────────────────────────────
+async function loadTracks(id) {
+  const res = await api(`playlists/${id}/tracks?limit=100`);
+  tracks = res.items.map(i => i.track).filter(t => t?.is_playable !== false);
+  if (!tracks.length) throw new Error('No playable tracks.');
+
+  playQueue = [...tracks];
+  if (localStorage.getItem('shuffle') === '1') shuffle(playQueue);
+  queueIdx = 0;
+  pickNext();
+}
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = (Math.random() * (i + 1)) | 0;
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+
+// ───────────────────────────── UI UTIL ────────────────────────────────────
+function refreshDisplay() {
+  albumArt.hidden = !revealed;
   if (revealed) {
-    albumArt.hidden = false;
     albumArt.src = current.album?.images?.[0]?.url || '';
-    trackNameEl.textContent = current.name;
+    trackNameEl.textContent   = current.name;
     trackArtistEl.textContent = current.artists.map(a => a.name).join(', ');
   } else {
-    albumArt.hidden = true;
     albumArt.src = '';
-    trackNameEl.textContent = '';
-    trackArtistEl.textContent = '';
+    trackNameEl.textContent = trackArtistEl.textContent = '';
   }
   waveform.style.opacity = 0;
   fullBtn.textContent = 'Play full';
-}
-
-function resetSnippetButtons() {
   buttons.forEach(b => b.classList.remove('used'));
 }
 
 function pickNext() {
-  if (playQueue.length === 0) return;
-  
-  // Get the next track from the queue
-  current = playQueue[queueIndex++];
-  
-  // Mark this track as played
-  playedTracks.add(current.id);
-  
-  // If we've reached the end of the queue
-  if (queueIndex >= playQueue.length) {
-    // Reset queue index
-    queueIndex = 0;
-    
-    // If all tracks have been played, reset the played tracks set
-    if (playedTracks.size >= tracks.length) {
-      playedTracks.clear();
-    }
-    
-    // If shuffle is enabled, reshuffle the queue
-    if (localStorage.getItem('shuffle') === '1') {
-      shuffleArray(playQueue);
-    }
+  if (!playQueue.length) return;
+  do  { current = playQueue[queueIdx++]; }
+  while (current && played.has(current.id) && queueIdx < playQueue.length);
+
+  played.add(current.id);
+  if (queueIdx >= playQueue.length) {
+    queueIdx = 0;
+    played.clear();
+    if (localStorage.getItem('shuffle') === '1') shuffle(playQueue);
   }
-  
   revealed = false;
-  resetSnippetButtons();
-  updateTrackDisplay();
+  refreshDisplay();
 }
 
-function shuffleArray(array) {
-  // Fisher-Yates shuffle algorithm
-  for (let i = array.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [array[i], array[j]] = [array[j], array[i]];
-  }
-  return array;
-}
-
-//-------------------------------- PLAYER SETUP -----------------------------
+// ───────────────────────── PLAYER SETUP ───────────────────────────────────
 window.onSpotifyWebPlaybackSDKReady = setupPlayer;
 
 function setupPlayer() {
-  player = new Spotify.Player({ name: 'Snipify Player', getOAuthToken: cb => cb(access), volume: 0.8 });
+  player = new Spotify.Player({
+    name: 'Snipify Player',
+    getOAuthToken: cb => cb(access),
+    volume: 0.8
+  });
 
-  player.addListener('ready', e => (deviceId = e.device_id));
+  player.addListener('ready', async e => {
+    deviceId = e.device_id;
+    await ensureDeviceActive();               // first transfer
+  });
   player.connect();
   document.body.addEventListener('click', () => player.activateElement(), { once: true });
 
-  // Buttons
-  buttons.forEach(b => (b.onclick = () => { b.classList.add('used'); playSnippet(+b.dataset.sec); }));
-
-  fullBtn.onclick = () => {
-    if (!current?.uri) return;
-    const playing = waveform.style.opacity === '1';
-    playing ? player.pause() : playTrack(current.uri);
-    waveform.style.opacity = playing ? 0 : 1;
-    fullBtn.textContent   = playing ? 'Play full' : 'Stop';
-  };
-
-  nextBtn.onclick = () => { player.pause(); pickNext(); };
-
-  revealBtn.onclick = () => { revealed = !revealed; revealBtn.textContent = revealed ? 'Hide 🎵' : 'Reveal 🎵'; updateTrackDisplay(); };
-
-  backBtn.onclick = () => { player.pause(); location.href = 'selector.html'; };
+  // buttons
+  buttons.forEach(b => b.onclick = () => { b.classList.add('used'); playSnippet(+b.dataset.sec); });
+  fullBtn.onclick   = toggleFull;
+  nextBtn.onclick   = () => { player.pause(); pickNext(); };
+  revealBtn.onclick = () => { revealed = !revealed; revealBtn.textContent = revealed ? 'Hide 🎵' : 'Reveal 🎵'; refreshDisplay(); };
+  backBtn.onclick   = () => { player.pause(); location.href = 'selector.html'; };
 }
 
-//-------------------------------- Playback Helpers -------------------------
-function playTrack(uri, pos = 0) {
-  return api(`me/player/play?device_id=${deviceId}`, {
+async function toggleFull() {
+  if (!current?.uri) return;
+  const playing = waveform.style.opacity === '1';
+  playing ? player.pause() : await playTrack(current.uri);
+  waveform.style.opacity = playing ? 0 : 1;
+  fullBtn.textContent    = playing ? 'Play full' : 'Stop';
+}
+
+// ───────────────────────────── PLAYBACK ───────────────────────────────────
+async function playTrack(uri, pos = 0) {
+  await ensureDeviceActive();                   // guarantee right device
+  await api(`me/player/play?device_id=${deviceId}`, {
     method: 'PUT',
     body: JSON.stringify({ uris: [uri], position_ms: pos })
   });
 }
 
 async function playSnippet(sec) {
-  if (!current?.uri || !player) return;
+  if (!current?.uri) return;
 
-  // stop any previous snippet watcher
-  if (snippetWatcher) {
-    clearInterval(snippetWatcher);
-    snippetWatcher = null;
-  }
+  clearInterval(snippetWatch);
 
   try {
     await playTrack(current.uri, 0);
-    await waitUntilPlayingSDK();
-
+    await waitUntilPlaying();
     waveform.style.opacity = 1;
-    const startTime = Date.now();
+    const t0 = Date.now();
 
-    // poll the local SDK every 100 ms
-    snippetWatcher = setInterval(async () => {
-      try {
-        const state = await player.getCurrentState();
-        if (!state || state.paused) return;                          // already paused
-        const elapsed = Date.now() - startTime;
-        if (elapsed >= sec * 1000) {
-          await player.pause();                                      // reliable pause
-          waveform.style.opacity = 0;
-          clearInterval(snippetWatcher);
-          snippetWatcher = null;
-        }
-      } catch { /* ignore transient SDK errors */ }
+    snippetWatch = setInterval(async () => {
+      const played = (Date.now() - t0) / 1000;
+      if (played >= sec) {
+        clearInterval(snippetWatch);
+        waveform.style.opacity = 0;
+        await player.pause();
+      }
     }, 100);
-  } catch (err) {
-    console.error('Snippet error:', err);
+  } catch (e) {
+    console.error('Snippet error', e);
+    pickNext();                  // fallback: skip problematic track
   }
 }
 
-function waitUntilPlayingSDK(timeout = 2000) {
+function waitUntilPlaying(timeout = 2000) {
   return new Promise(resolve => {
-    const t0 = Date.now();
-    const poll = async () => {
+    const start = Date.now();
+    (async function poll() {
       const st = await player.getCurrentState().catch(() => null);
       if (st && !st.paused && st.position > 0) return resolve();
-      if (Date.now() - t0 > timeout) return resolve();               // fallback
+      if (Date.now() - start > timeout)        return resolve();
       setTimeout(poll, 50);
-    };
-    poll();
+    })();
   });
 }
