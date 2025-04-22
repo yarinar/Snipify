@@ -7,7 +7,6 @@
   <script src="https://sdk.scdn.co/spotify-player.js"></script>
   <script type="module" src="auth.js"></script>
   <script type="module" src="quiz.js"></script>
-  <script type="module" src="config.js"></script>
   <style>
     body {
       background-color: #000;
@@ -149,12 +148,7 @@
     </div>
   </div>
 
-  <div id="version"></div>
+  <div id="version">v3.0.2</div>
   <div id="creator">Created by Yarin Arbiv</div>
-  
-  <script type="module">
-    import { APP_VERSION } from './config.js';
-    document.getElementById('version').textContent = `v${APP_VERSION}`;
-  </script>
 </body>
 </html>
