@@ -118,24 +118,33 @@ function playTrack(uri, pos = 0) {
 async function playSnippet(sec) {
   if (!current?.uri || !player) return;
 
-  if (snippetTimer) {
-    clearTimeout(snippetTimer);
-    snippetTimer = null;
+  // stop any previous snippet watcher
+  if (snippetWatcher) {
+    clearInterval(snippetWatcher);
+    snippetWatcher = null;
   }
 
   try {
     await playTrack(current.uri, 0);
-
     await waitUntilPlayingSDK();
 
     waveform.style.opacity = 1;
+    const startTime = Date.now();
 
-    snippetTimer = setTimeout(async () => {
-      await player.pause();
-      waveform.style.opacity = 0;
-      snippetTimer = null;
-    }, sec * 1000);
-
+    // poll the local SDK every 100 ms
+    snippetWatcher = setInterval(async () => {
+      try {
+        const state = await player.getCurrentState();
+        if (!state || state.paused) return;                          // already paused
+        const elapsed = Date.now() - startTime;
+        if (elapsed >= sec * 1000) {
+          await player.pause();                                      // reliable pause
+          waveform.style.opacity = 0;
+          clearInterval(snippetWatcher);
+          snippetWatcher = null;
+        }
+      } catch { /* ignore transient SDK errors */ }
+    }, 100);
   } catch (err) {
     console.error('Snippet error:', err);
   }
@@ -143,18 +152,13 @@ async function playSnippet(sec) {
 
 function waitUntilPlayingSDK(timeout = 2000) {
   return new Promise(resolve => {
-    const start = Date.now();
-
+    const t0 = Date.now();
     const poll = async () => {
-      try {
-        const state = await player.getCurrentState();
-        if (state && !state.paused && state.position > 0) return resolve();
-      } catch {}
-
-      if (Date.now() - start > timeout) return resolve();
+      const st = await player.getCurrentState().catch(() => null);
+      if (st && !st.paused && st.position > 0) return resolve();
+      if (Date.now() - t0 > timeout) return resolve();               // fallback
       setTimeout(poll, 50);
     };
-
     poll();
   });
 }
