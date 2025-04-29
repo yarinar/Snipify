@@ -67,7 +67,9 @@ function refresh(){
   }else{
     albumArt.src=''; trackNameEl.textContent=trackArtistEl.textContent='';
   }
-  waveform.style.opacity=0; fullBtn.textContent='Play full';
+  waveform.style.opacity=0;
+  fullBtn.textContent='Play full';
+  revealBtn.textContent='Reveal 🎵';
   buttons.forEach(b=>b.classList.remove('used'));
 }
 function pickNext(){
@@ -75,7 +77,9 @@ function pickNext(){
   current=playQueue[queueIdx++];
   played.add(current.id);
   if(queueIdx>=playQueue.length){queueIdx=0; played.clear(); if(localStorage.getItem('shuffle')==='1') shuffle(playQueue);}  
-  revealed=false; refresh();
+  revealed=false;
+  player && player.pause();
+  refresh();
 }
 
 // ─────────── PLAYER ───────────
@@ -91,16 +95,30 @@ function setupPlayer(){
 
   buttons.forEach(b=>b.onclick=()=>{b.classList.add('used'); playSnippet(+b.dataset.sec);});
   fullBtn.onclick=toggleFull;
-  nextBtn.onclick =()=>{player.pause(); pickNext();};
-  revealBtn.onclick=()=>{revealed=!revealed; revealBtn.textContent=revealed?'Hide 🎵':'Reveal 🎵'; refresh();};
+  nextBtn.onclick =()=>{
+    player.pause();
+    revealed = false;
+    refresh();
+  };
+  revealBtn.onclick=()=>{
+    revealed=!revealed;
+    revealBtn.textContent=revealed?'Hide 🎵':'Reveal 🎵';
+    refresh();
+  };
   backBtn.onclick  =()=>{player.pause(); location.href='selector.html';};
 }
 async function toggleFull(){
   if(!current?.uri) return;
   const playing=waveform.style.opacity==='1';
-  playing?player.pause():await playTrack(current.uri);
-  waveform.style.opacity=playing?0:1;
-  fullBtn.textContent =playing?'Play full':'Stop';
+  if(playing){
+    await player.pause();
+    waveform.style.opacity=0;
+    fullBtn.textContent='Play full';
+  }else{
+    await playTrack(current.uri);
+    waveform.style.opacity=1;
+    fullBtn.textContent='Stop';
+  }
 }
 
 // ─────────── PLAYBACK HELPERS ───────────
