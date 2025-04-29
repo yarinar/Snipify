@@ -3,6 +3,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Snipify - Select Playlist</title>
   <script type="module" src="selector.js"></script>
   <style>
@@ -42,6 +43,8 @@
       text-align: center;
       cursor: pointer;
       transition: transform 0.2s;
+      min-width: 44px;
+      min-height: 44px;
     }
 
     .playlist:hover {
@@ -53,6 +56,10 @@
       aspect-ratio: 1;
       border-radius: 6px;
       object-fit: cover;
+      display: block;
+      margin: 0 auto;
+      max-width: 180px;
+      max-height: 180px;
     }
 
     .playlist-name {
@@ -68,11 +75,34 @@
       text-align: center;
       margin-top: 1rem;
     }
+
+    @media (max-width: 600px) {
+      #logo {
+        font-size: 2.8rem;
+      }
+      #grid {
+        grid-template-columns: repeat(auto-fill, minmax(44vw, 1fr));
+        gap: 0.7rem;
+        padding: 0 0.2rem;
+      }
+      .playlist {
+        padding: 0.7rem;
+        min-width: 48px;
+        min-height: 48px;
+      }
+      .playlist img {
+        max-width: 90vw;
+        max-height: 90vw;
+      }
+      .playlist-name {
+        font-size: 1.1rem;
+      }
+    }
   </style>
 </head>
 <body>
   <div id="logo">Snipify</div>
   <div id="grid"></div>
-  <div id="version">v3.0.1</div>
+  <div id="version">v3.0.3</div>
 </body>
 </html>

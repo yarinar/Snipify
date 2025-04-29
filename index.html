@@ -3,6 +3,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Snipify</title>
   <script src="https://sdk.scdn.co/spotify-player.js"></script>
   <script type="module" src="auth.js"></script>
@@ -24,6 +25,8 @@
       position: absolute;
       top: 1rem;
       left: 1rem;
+      font-size: 1.2rem;
+      padding: 0.7em 1.2em;
     }
 
     #logo {
@@ -39,6 +42,7 @@
       border-radius: 12px;
       object-fit: cover;
       margin:0 auto 0.5rem;
+      display: block;
     }
 
     #trackName {
@@ -75,6 +79,8 @@
       flex-direction: column;
       align-items: center;
       margin-top: 1em;
+      width: 100%;
+      max-width: 400px;
     }
 
     #creator {
@@ -88,11 +94,12 @@
       justify-content: center;
       flex-wrap: wrap;
       margin: 0.5em 0;
+      gap: 0.5em;
     }
 
     button, select {
       font-size: 1rem;
-      padding: 0.5em 1em;
+      padding: 0.7em 1.4em;
       margin: 0.4em;
       border: none;
       border-radius: 6px;
@@ -100,6 +107,9 @@
       color: #fff;
       cursor: pointer;
       transition: transform 0.2s, background-color 0.2s;
+      min-width: 44px;
+      min-height: 44px;
+      /* Touch target size */
     }
 
     button:hover {
@@ -115,6 +125,44 @@
       font-size: 0.7rem;
       color: #777;
       margin-top: 1rem;
+    }
+
+    @media (max-width: 600px) {
+      #logo {
+        font-size: 2.8rem;
+      }
+      #albumArt {
+        width: 60vw;
+        height: 60vw;
+        max-width: 320px;
+        max-height: 320px;
+      }
+      #trackName {
+        font-size: 1.3rem;
+      }
+      #trackArtist {
+        font-size: 1.1rem;
+      }
+      #controls {
+        max-width: 98vw;
+      }
+      button, select {
+        font-size: 1.2rem;
+        padding: 1em 2em;
+        min-width: 48px;
+        min-height: 48px;
+      }
+      .button-group {
+        gap: 0.7em;
+      }
+      #waveform {
+        width: 80px;
+        height: 54px;
+      }
+      #back {
+        font-size: 1.4rem;
+        padding: 1em 1.5em;
+      }
     }
   </style>
 </head>
@@ -148,7 +196,7 @@
     </div>
   </div>
 
-  <div id="version">v3.0.2</div>
+  <div id="version">v3.0.3</div>
   <div id="creator">Created by Yarin Arbiv</div>
 </body>
 </html>
