@@ -98,7 +98,7 @@ function setupPlayer(){
   nextBtn.onclick =()=>{
     player.pause();
     revealed = false;
-    refresh();
+    pickNext();
   };
   revealBtn.onclick=()=>{
     revealed=!revealed;
