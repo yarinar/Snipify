@@ -121,6 +121,7 @@
     @media (max-width: 600px) {
       #logo {
         font-size: 2.8rem;
+        margin-top: 2.5rem;
       }
       #albumArt {
         width: 60vw;
@@ -146,6 +147,17 @@
       .button-group {
         gap: 0.7em;
       }
+      #snippets.button-group {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        width: 100vw;
+        max-width: 100vw;
+        padding-bottom: 0.5em;
+      }
+      #snippets.button-group button {
+        flex: 0 0 auto;
+      }
       #waveform {
         width: 80px;
         height: 54px;
@@ -153,6 +165,9 @@
       #back {
         font-size: 1.4rem;
         padding: 1em 1.5em;
+      }
+      body {
+        padding-top: 0.5em;
       }
     }
   </style>
