@@ -53,7 +53,11 @@ async function loadTracks(id){
   const res=await api(`playlists/${id}/tracks?limit=100`);
   tracks=res.items.map(i=>i.track).filter(t=>t?.is_playable!==false);
   if(!tracks.length) throw new Error('No playable tracks');
+  
+  // Reset queue state entirely when loading new tracks
   playQueue=[...tracks];
+  queueIdx=0;
+  played.clear();
   // Defer shuffling and pickNext until player is ready
 }
 function shuffle(a){for(let i=a.length-1;i;--i){const j=(Math.random()*(i+1))|0;[a[i],a[j]]=[a[j],a[i]]}}
@@ -78,7 +82,11 @@ function pickNext(){
   current=playQueue[queueIdx];
   played.add(current.id);
   queueIdx++;
-  if(queueIdx>=playQueue.length){queueIdx=0; played.clear(); if(localStorage.getItem('shuffle')==='1') shuffle(playQueue);}  
+  if(queueIdx>=playQueue.length){
+    queueIdx=0;
+    played.clear();
+    // Don't shuffle here - only shuffle when explicitly requested
+  }
   revealed=false;
   player && player.pause();
   refresh();
@@ -94,7 +102,10 @@ function setupPlayer(){
     await transferHere();
     playerReady = true;
     
-    // Only shuffle if explicitly enabled
+    // Explicitly reset queue index to ensure we start at the first track
+    queueIdx = 0;
+    
+    // Only shuffle if explicitly enabled, and do it *before* picking the first track
     if(localStorage.getItem('shuffle')==='1') {
       shuffle(playQueue);
     }
