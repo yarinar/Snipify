@@ -75,8 +75,9 @@ function refresh(){
 }
 function pickNext(){
   if(!playQueue.length) return;
-  current=playQueue[queueIdx++];
+  current=playQueue[queueIdx];
   played.add(current.id);
+  queueIdx++;
   if(queueIdx>=playQueue.length){queueIdx=0; played.clear(); if(localStorage.getItem('shuffle')==='1') shuffle(playQueue);}  
   revealed=false;
   player && player.pause();
