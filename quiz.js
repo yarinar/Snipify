@@ -16,6 +16,7 @@ let access, player, deviceId;
 let tracks=[], playQueue=[], queueIdx=0, played=new Set();
 let current, revealed=false;
 let snippetWatch=null;
+let playerReady = false;
 
 // ─────────── INIT ───────────
 (async()=>{
@@ -28,6 +29,7 @@ let snippetWatch=null;
   try{
     await loadTracks(plId);
     setupPlayer();
+    // Don't call pickNext() here - will be called when player is ready
   }catch(e){ console.error(e); location.href='selector.html'; }
 })();
 
@@ -52,8 +54,7 @@ async function loadTracks(id){
   tracks=res.items.map(i=>i.track).filter(t=>t?.is_playable!==false);
   if(!tracks.length) throw new Error('No playable tracks');
   playQueue=[...tracks];
-  if(localStorage.getItem('shuffle')==='1') shuffle(playQueue);
-  queueIdx=0; pickNext();
+  // Defer shuffling and pickNext until player is ready
 }
 function shuffle(a){for(let i=a.length-1;i;--i){const j=(Math.random()*(i+1))|0;[a[i],a[j]]=[a[j],a[i]]}}
 
@@ -87,7 +88,19 @@ window.onSpotifyWebPlaybackSDKReady=setupPlayer;
 function setupPlayer(){
   player=new Spotify.Player({name:'Snipify Player',getOAuthToken:cb=>cb(access),volume:0.8});
 
-  player.addListener('ready',async e=>{deviceId=e.device_id; await transferHere();});
+  player.addListener('ready',async e=>{
+    deviceId=e.device_id; 
+    await transferHere();
+    playerReady = true;
+    
+    // Only shuffle if explicitly enabled
+    if(localStorage.getItem('shuffle')==='1') {
+      shuffle(playQueue);
+    }
+    
+    // Now pick the first track after player is ready
+    pickNext();
+  });
   player.addListener('not_ready',()=>console.warn('Web player went offline'));
   player.addListener('playback_error',e=>{console.warn('SDK playback error',e); nextBtn.click();});
   player.connect();
@@ -108,7 +121,7 @@ function setupPlayer(){
   backBtn.onclick  =()=>{player.pause(); location.href='selector.html';};
 }
 async function toggleFull(){
-  if(!current?.uri) return;
+  if(!current?.uri || !playerReady) return;
   const playing=waveform.style.opacity==='1';
   if(playing){
     await player.pause();
@@ -123,13 +136,14 @@ async function toggleFull(){
 
 // ─────────── PLAYBACK HELPERS ───────────
 async function playTrack(uri,pos=0){
+  if(!playerReady) return;
   await transferHere();
   await api(`me/player/play?device_id=${deviceId}`,{
     method:'PUT',body:JSON.stringify({uris:[uri],position_ms:pos})
   });
 }
 async function playSnippet(sec){
-  if(!current?.uri) return;
+  if(!current?.uri || !playerReady) return;
   clearInterval(snippetWatch);
   try{
     await playTrack(current.uri,0);
